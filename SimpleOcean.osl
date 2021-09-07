@@ -1,0 +1,631 @@
+// Simple Ocean Shader
+// SimpleOcean by Philippe Groarke
+// Modified: 2021-05-05
+// Copyright 2021 Autodesk Inc, All rights reserved. This file is licensed under Apache 2.0 license
+//    https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+/*
+TODO :
+- debug cell noise
+- test vray displace
+- figure direction utility map
+- debugging
+
+
+Help
+
+Arnold Properties
+- General > Opaque : off
+- Displacement > Enable
+- Displacement > Bounds pads : 1
+- Displacement > Use Map
+- Connect Displacement output to that map.
+
+Optional, Auto-Bump can replace subdiv and is much faster.
+- Subdivision > Catclark
+- Subdivision > Iterations : ~2-3
+
+Arnold Standard Surface Setup
+- Diffuse : 0
+- IOR : 1.33
+- Specular : ~1
+- Transmission : 1
+- Transmission Color : ~blue
+- Transmission Depth : 0.1+
+- Scatter : White (or other color)
+- Scatter Anisotropy : 1
+*/
+
+#define MAX_OCTAVES 12
+#define MAX_WAVES 32
+#define ARR_SIZE 384
+
+struct wave_info {
+	float wavelength;
+	float amp;
+	vector dir;
+
+	// computed
+	float w;
+	float q;
+	float phi;
+	float cos_term;
+	float sin_term;
+};
+
+float wave_w(float wavelength) {
+	return 2.0 / wavelength;
+}
+
+float wave_q(float steepness, float w, float amp, float num_waves) {
+	return steepness / (amp * w * num_waves);
+}
+
+float wave_phi(float speed, float wavelength) {
+	return speed * sqrt(9.8 * (M_2PI / wavelength));
+}
+
+float max_height(int num_octaves, int num_waves, wave_info waves[ARR_SIZE]) {
+	float ret = 0.0;
+	for (int j = 0; j < num_octaves; ++j) { 
+		int count = j * num_waves + num_waves;
+		for (int i = j * num_waves; i < count; ++i) {
+			ret += waves[i].amp;
+		}
+	}
+	return ret / 2.0;
+}
+
+float fract(float x) {
+	return x - floor(x);
+}
+
+// https://www.shadertoy.com/view/Xt23Ry
+float rand(float co) {
+	return fract(sin(co * 91.3458) * 47453.5453);
+}
+
+float remap(float val, float low1, float high1, float low2, float high2) {
+	return low2 + (val - low1) * (high2 - low2) / (high1 - low1);
+}
+
+void compute_terms(point pos, float t, int num_octaves, int num_waves, output wave_info waves[ARR_SIZE]) {
+	for (int j = 0; j < num_octaves; ++j) { 
+		int count = j * num_waves + num_waves;
+		for (int i = j * num_waves; i < count; ++i) {
+			float term = waves[i].w * dot(waves[i].dir, pos) + waves[i].phi * t;
+
+			waves[i].cos_term = cos(term);
+			waves[i].sin_term = sin(term);
+		}
+	}
+}
+
+vector compute_displacement(int num_octaves, int num_waves, wave_info waves[ARR_SIZE]) {
+	vector ret = 0;
+	for (int j = 0; j < num_octaves; ++j) {
+		int count = j * num_waves + num_waves;
+		for (int i = j * num_waves; i < count; ++i) {
+			float xy_term = waves[i].q * waves[i].amp * waves[i].cos_term;
+
+			ret[0] += xy_term * waves[i].dir[0];
+			ret[1] += xy_term * waves[i].dir[1];
+			ret[2] += waves[i].amp * waves[i].sin_term;
+		}
+	}
+
+	return ret;
+}
+
+vector compute_normal(int num_octaves, int num_waves, wave_info waves[ARR_SIZE]) {
+	vector ret = 0;
+	for (int j = 0; j < num_octaves; ++j) {
+		int count = j * num_waves + num_waves;
+		for (int i = j * num_waves; i < count; ++i) {
+			float xy_term = waves[i].w * waves[i].amp * waves[i].cos_term;
+
+			ret[0] += waves[i].dir[0] * xy_term;
+			ret[1] += waves[i].dir[1] * xy_term;
+			ret[2] += waves[i].q * waves[i].w * waves[i].amp * waves[i].sin_term;
+		}
+	}
+
+	ret[0] = -ret[0];
+	ret[1] = -ret[1];
+	ret[2] = 1.0 - ret[2];
+	return ret;
+}
+
+// Dx
+vector compute_bitangent(int num_octaves, int num_waves, wave_info waves[ARR_SIZE]) {
+	vector ret = 0;
+	for (int j = 0; j < num_octaves; ++j) {
+		int count = j * num_waves + num_waves;
+		for (int i = j * num_waves; i < count; ++i) {
+			float xy_term = waves[i].q * waves[i].w * waves[i].amp * waves[i].sin_term;
+
+			ret[0] += pow(waves[i].dir[0], 2.0) * xy_term;
+			ret[1] += waves[i].dir[0] * waves[i].dir[1] * xy_term;
+			ret[2] += waves[i].dir[0] * waves[i].w * waves[i].amp * waves[i].cos_term;
+		}
+	}
+
+	ret[0] = 1.0 - ret[0];
+	ret[1] = -ret[1];
+	return ret;
+}
+
+// Dy
+vector compute_tangent(int num_octaves, int num_waves, wave_info waves[ARR_SIZE]) {
+	vector ret = 0;
+	for (int j = 0; j < num_octaves; ++j) {
+		int count = j * num_waves + num_waves;
+		for (int i = j * num_waves; i < count; ++i) {
+			float xy_term = waves[i].q * waves[i].w * waves[i].amp * waves[i].sin_term;
+
+			ret[0] += waves[i].dir[0] * waves[i].dir[1] * xy_term;
+			ret[1] += pow(waves[i].dir[1], 2.0) * xy_term;
+			ret[2] += waves[i].dir[1] * waves[i].w * waves[i].amp * waves[i].cos_term;
+		}
+	}
+
+	ret[0] = -ret[0];
+	ret[1] = 1.0 - ret[1];
+	return ret;
+}
+
+// Play with k,
+// https://www.desmos.com/calculator/og836nvwmx
+float interp(float k, float percent) {
+	float ret = 0.0;
+	float epsilon = 0.0001;
+	if (fabs(k) < epsilon) {
+		// Actual k = 0 == 0 always. Just do linear interp.
+		ret = percent;
+	} else {
+		ret = (exp(k * percent) - 1.0) / (exp(k) - 1.0);
+	}
+	return ret;
+}
+
+shader SimpleOcean
+[[
+	string help  = 
+		"<h3>Simple Ocean</h3>"
+		"A vector displacement shader to generate basic ocean waves.<br>"
+		"<h4>Instructions</h4>"
+		"The shader operates in Tangent Space. To get any useful results, use a 'UVW Map' modifier and apply 'XYZ to UVW' to your target object.<br>"
+		"The output Displacement will only work with 'Arnold Properties' modifier vector displacement input.",
+	string label = "Simple Ocean"
+]]
+(
+	int NumOctaves = 8
+	[[
+		string help = "Wave batches are generated per octave, going down from the wave length specified.",
+		int min = 1,
+		int max = MAX_OCTAVES,
+		int connectable = 0
+	]],
+
+	int NumWaves = 12
+	[[
+		string help = "Number of waves to generate, per octave.",
+		int min = 1,
+		int max = MAX_WAVES,
+		int connectable = 0
+	]],
+
+	int UVSet = 1
+	[[
+		string label="UV Map Channel",
+		string help ="The 3ds max Map channel to look up. Must have been primed with 'XYZ to UVW'.",
+		int min = 0,
+		int max = 99
+	]],
+
+	vector UVOffset = 0.0
+	[[
+		string help = "The UV lookup offset. Can be used to move waves.",
+		int connectable = 0
+	]],
+
+	string Randomness = "hash 1"
+	[[
+		string widget= "popup",
+		string help  = "Various noises used to gather entropy.",
+		string options="hash 1|hash 2|hash 3|cell 1|cell 2|rand 1|rand 2|rand 3|perlin|even distribution|simplex",
+		int connectable = 0
+	]],
+
+	int Seed = 0
+	[[
+		string help  = "Randomness seed. Doesn't affect all random engines.",
+		int connectable = 0
+	]],
+
+	float WaveLength = 80.0
+	[[
+		string help = "The largest wave length. Waves will be generated starting with this value.",
+		int connectable = 0
+	]],
+
+	float Amplitude = 3.0
+	[[
+		string help = "The height of the waves.",
+		int connectable = 0
+	]],
+
+	float AmplitudeDecay = 2.0
+	[[
+		string help = "Amplitude is scaled according to the octave frequencies. You can increase the scaling rate (making smaller waves less tall).",
+		float min = 0.0,
+		int connectable = 0
+	]],
+
+	float Steepness = 5.0
+	[[
+		string help = "How spiky the wave is. Too much steepness will cause crests to curl." \
+			" Depending on your material settings, this can result in a fake foam look.",
+		int connectable = 0
+	]],
+
+	float SteepnessDecay = 0.2
+	[[
+		string help = "Steepness is scaled according to the octave frequencies. You can increase or decrease the steepness scaling if you wish.",
+		float min = 0.0,
+		float max = 1.0,
+		int connectable = 0
+	]],
+
+	float Direction = 45.0
+	[[
+		string help = "Direction of the waves in degrees. 0 degrees is +x.",
+		string units = "degrees",
+		float min = 0.0,
+		float max = 360.0,
+		int connectable = 0
+	]],
+
+	float Deviation = 120.0
+	[[
+		string help = "The max angle to deviate from direction, in degrees. Use 180 degrees for waves in all directions.",
+		string units = "degrees",
+		float min = 0.0,
+		float max = 180.0,
+		int connectable = 0
+	]],
+
+	float Speed = 1.0
+	[[
+		string help = "Wave speed multiplier.",
+		int connectable = 0
+	]],
+
+	float Time = 0.0
+	[[
+		string label = "Time (s)",
+		float timeValue = 0.0
+	]],
+
+	// Sea Level Settings
+	float SeaLevel = 25.0
+	[[
+		string help = "Increase or decrease the Sea Level height."
+	]],
+
+	int SeaLevelRamp = 1
+	[[
+		string help  = "Use interpolation to smooth the sea level map.",
+		string widget= "checkBox",
+		int connectable = 0
+	]],
+
+	float SeaLevelRampSize = 25.0
+	[[
+		string help = "How wide is the ramp from under sea level to above sea level. Only valid when using SeaLevelRamp.",
+		float min = 0.1,
+		int connectable = 0
+	]],
+
+	float SeaLevelRampSteepness = 5.0
+	[[
+		string help = "How steep is the sea level ramp. Positive is exponential, negative is logarithmic and '0' is linear interpolation.",
+		int connectable = 0
+	]],
+
+
+	// Foam Settings
+	float FoamThreshold = 0.2
+	[[
+		string help = "Controls how many peaks are considered foam. Higher values give result in more foam.",
+		float min = 0.0
+	]],
+
+	int FoamRamp = 1
+	[[
+		string help  = "Use interpolation to smooth the foam map.",
+		string widget = "checkBox",
+		int connectable = 0
+		// string label = "Sea Level Ramp"
+	]],
+
+	float FoamRampSize = 0.4
+	[[
+		string help = "How wide is the ramp from no foam to all foam. Only valid when using FoamRamp.",
+		float min = 0.1,
+		int connectable = 0
+	]],
+
+	float FoamRampSteepness = 5.0
+	[[
+		string help = "How steep is the foam ramp. Positive is exponential, negative is logarithmic and '0' is linear interpolation.",
+		int connectable = 0
+	]],
+
+	// ModulatedFoam Settings
+	float FoamTwoThreshold = 0.5
+	[[
+		string help = "Controls how many peaks are considered foam, for Modulated Foam Map. Higher values give result in more foam.",
+		float min = 0.0
+	]],
+
+	float FoamTwoBrightness = 2.0
+	[[
+		string help = "Affects the FoamMapTwo output brightness.",
+		float min = 0.0
+	]],
+
+	// int Debug = 0
+	// [[
+	// 	string help = "",
+	// 	string widget = "checkBox",
+	// 	string label = "Debug",
+	// 	int connectable = 0
+	// ]],
+
+
+	// Outputs
+	output vector Displacement = 0
+	[[
+		string help = "The vector displacement. This must be used with 'Arnold Properties' vector displacement input."
+	]],
+
+	output color SeaLevelMap = 0
+	[[
+		string help = "Outputs a utility map which colors white above provided sea level."
+	]],
+
+	output color BreakMap = 0
+	[[
+		string help = "Outputs a utility map which identifies where peaks 'break' or 'curl'. You can use this to hide curls when using extreme steepness."
+	]],
+
+// Disable for now. Needs more work and investigation.
+#if 0
+	output vector BreakDirection = 0
+	[[
+		string help = "EXPERIMENTAL : The local wave break direction."
+	]],
+#endif
+
+	output color FoamMap = 0
+	[[
+		string help = "Outputs a utility map which identifies wave peaks, according to the provided parameters."
+	]],
+
+	output color FoamMapTwo = 0
+	[[
+		string help = "An alternative Foam map with a different smooth algorithm."
+	]]
+
+	// output color DebugMap = 0
+)
+{
+	// Array of waves settings.
+	wave_info waves[ARR_SIZE];
+
+	// Used to change amplitude according to wave size.
+	float amp_ratio = Amplitude / WaveLength;
+
+	vector right = { 1.0, 0.0, 0.0 };
+	int total_waves = NumOctaves * NumWaves;
+
+	float current_wavelength = WaveLength;
+	for (int j = 0; j < NumOctaves; ++j) {
+		float min_wavelength = current_wavelength / 1.5;
+		float max_wavelength = current_wavelength * 1.5;
+
+		int count = j * NumWaves + NumWaves;
+		for (int i = j * NumWaves; i < count; ++i) {
+			float abs_idx = float(i + Seed);
+			float local_idx = float((i + Seed) % NumWaves);
+			float norm_idx = local_idx / float(NumWaves);
+
+			float abs_seed = float(Seed);
+			float local_seed = float(Seed % NumWaves);
+			float norm_seed = local_seed / float(NumWaves);
+
+			float rng = 0.0;
+			if (Randomness == "hash 1") {
+				rng = noise("hash", local_idx, local_seed);
+			} else if (Randomness == "hash 2") {
+				rng = noise("hash", norm_idx, norm_seed);
+			} else if (Randomness == "hash 3") {
+				rng = noise("hash", abs_idx, abs_seed);
+			} else if (Randomness == "cell 1") {
+				rng = noise("cell", abs_idx, abs_seed);
+			} else if (Randomness == "cell 2") {
+				rng = noise("cell", local_idx, local_seed);
+			} else if (Randomness == "rand 1") {
+				rng = rand(abs_idx);
+			} else if (Randomness == "rand 2") {
+				rng = rand(norm_idx);
+			} else if (Randomness == "rand 3") {
+				rng = rand(local_idx);
+			} else if (Randomness == "perlin") {
+				rng = noise("uperlin", norm_idx, norm_seed);
+			} else if (Randomness == "even distribution") {
+				rng = norm_idx;
+			} else if (Randomness == "simplex") {
+				rng = noise("usimplex", norm_idx, norm_seed);
+			}
+
+			// too heavy :/ provide noise map input?
+			// float rng = fabs(noise("gabor", norm_idx));
+
+			float wlength = mix(min_wavelength, max_wavelength, rng);
+			float decay_per = float(j) / float(NumOctaves);
+
+			float amp_decay = 1.0 / (1.0 + (decay_per * AmplitudeDecay));
+			float amp = wlength * amp_ratio * amp_decay;
+
+			float w = wave_w(wlength);
+
+			float steep_decay = 1.0 / (1.0 + (decay_per * SteepnessDecay * Steepness));
+			float steep = Steepness * steep_decay;
+			float q = wave_q(steep, w, amp, float(total_waves));
+
+			float phi = wave_phi(Speed, wlength);
+
+			float angle = Direction;
+			angle += mix(-Deviation, Deviation, rng);
+			vector my_dir = rotate(right, radians(angle), vector(0.0, 0.0, 1.0));
+
+			waves[i].wavelength = wlength;
+			waves[i].amp = amp;
+			waves[i].dir = my_dir;
+			waves[i].w = w;
+			waves[i].q = q;
+			waves[i].phi = phi;
+		}
+
+		current_wavelength /= 2.0;
+	}
+
+
+
+	// Position to compute comes from uv coords, aka tangent space xy.
+	point pos = point(u, v, 0.0);
+
+	// Get UVW channel
+	if (UVSet != 1) {
+		if (!getattribute(format("UV%d", UVSet), pos))
+		{
+			// Default UV set handled in
+			// a special way in MAXtoA.
+			// But we don't care since w is ignored.
+			getattribute(format("uv_%d", UVSet), pos);
+		}
+	}
+
+	// Just in case, reset w.
+	pos[0] += UVOffset[0];
+	pos[1] += UVOffset[1];
+	pos[2] = 0.0;
+
+	compute_terms(pos, Time, NumOctaves, NumWaves, waves);
+
+	Displacement = compute_displacement(NumOctaves, NumWaves, waves);
+
+	// TODO : bump()?
+	// vector Normal = compute_normal(NumOctaves, NumWaves, waves);
+
+	// Trivial over/under z.
+	{
+		float height = Displacement[2];
+		if (height >= SeaLevel) {
+			SeaLevelMap = color(1);
+		}
+
+		if (SeaLevelRamp) {
+			float ramp_start = SeaLevel - SeaLevelRampSize;
+
+			if (height >= ramp_start && height < SeaLevel) {
+				float per = (height - ramp_start) / SeaLevelRampSize;
+				float r = interp(SeaLevelRampSteepness, per);
+				SeaLevelMap = mix(color(0), color(1), r);
+			}
+		}
+	}
+
+
+	// Jacobian crest detect
+	{
+		vector Bitangent = compute_bitangent(NumOctaves, NumWaves, waves);
+		vector Tangent = compute_tangent(NumOctaves, NumWaves, waves);
+		float Jxx = Bitangent[0];
+		float Jxy = Bitangent[1];
+		float Jyy = Tangent[1];
+
+		float Jmin = 0.5 * (Jxx + Jyy) - 0.5 * sqrt(pow(Jxx - Jyy, 2.0) + 4.0 * pow(Jxy, 2.0));
+		float Jplus = 0.5 * (Jxx + Jyy) + 0.5 * sqrt(pow(Jxx - Jyy, 2.0) + 4.0 * pow(Jxy, 2.0));
+		float J = Jmin * Jplus;
+
+// The paper states you can only check with Jmin, but its unclear to me how
+// that interacts with the ramp stuff.
+#if 0
+		if (Jmin < 0.0) {
+			BreakMap = color(1,1,1);
+
+			float qmin = (Jmin - Jxx) / Jxy;
+			vector emin = vector(1, qmin, 0.0) / sqrt(1 + pow(qmin, 2.0));
+			BreakDirection = emin;
+		}
+
+		if (Jmin < FoamThreshold) {
+			FoamMap = color(1,1,1);
+		}
+
+		if (FoamRamp) {
+			float ramp_start = FoamThreshold + FoamRampSize;
+
+			if (FoamThreshold < Jmin && Jmin <= ramp_start) {
+				float per = 1.0 - ((Jmin - FoamThreshold) / FoamRampSize);
+				float r = interp(FoamRampSteepness, per);
+				FoamMap = mix(color(0), color(1), r);
+			}
+		}
+#else
+
+// What does this actually give us? What is the use case?
+#if 0
+		// if (J < 0.0) {
+			// BreakMap = color(1,1,1);
+
+			float qmin = (Jmin - Jxx) / Jxy;
+			vector emin = vector(1, qmin, 0.0) / sqrt(1 + pow(qmin, 2.0));
+			BreakDirection = emin;
+		// }
+#endif
+
+		if (J < 0.0) {
+			BreakMap = color(1,1,1);
+		}
+
+		if (J < FoamThreshold) {
+			FoamMap = color(1,1,1);
+		}
+
+		if (FoamRamp) {
+			float ramp_start = FoamThreshold + FoamRampSize;
+
+			if (FoamThreshold < J && J <= ramp_start) {
+				float per = 1.0 - ((J - FoamThreshold) / FoamRampSize);
+				float r = interp(FoamRampSteepness, per);
+				FoamMap = mix(color(0), color(1), r);
+			}
+		}
+
+		// This is another way than ramp to have nicer foam.
+		{
+			float m_col = FoamTwoBrightness * (-J + FoamTwoThreshold);
+			FoamMapTwo = clamp(color(m_col, m_col, m_col), color(0,0,0), color(1,1,1));
+		}
+
+		
+#endif
+
+		// TODO : Experiment with bending curls.
+	}
+}
+
