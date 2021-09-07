@@ -4,15 +4,17 @@ OSL shaders
 ## SimpleOcean
 
 ![Simple Ocean Ex1](doc/simpleocean_test1.png?raw=true "Test Render 1")
-![Simple Ocean Ex2](doc/simpleocean_test1.png?raw=true "Test Render 2 - Simple Foam Shading.")
+![Simple Ocean Ex2](doc/simpleocean_test2.png?raw=true "Test Render 2 - Simple Foam Shading")
+[![Play Demo](doc/simpleocean_play.png)](https://www.youtube.com/watch?v=YeeyUybFUvM "Play Demo & Guide")
 
-SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacement. It isn't highly complex, but should do the job when you need a quick ocean. The shader outputs a main vector displacement map and multiple utility maps, like foam maps, above sea map, etc.
+
+SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacement. It isn't highly complex, but should do the job when you need a quick & dirty ocean. The shader outputs a main vector displacement map and multiple utility maps, like foam maps, above sea map, etc.
 
 Connect the main output to Arnold Properties Vector Displacement map input.
 
 ### Known Issues
-- Animation doesn't work! There is currently a bug with the Arnold Properties Displacement map input. Once that is fixed I'll test animation.
-- On very large maps, when computing on CPU, the ocean generation can be slow.
+- **Animation doesn't work!** There is currently a bug with the Arnold Properties Displacement map input. Once that is fixed I can test animation.
+- When using very large maps, the ocean generation can be slow.
 
 ### Getting Started
 The following should create a decently shaded ocean. For best results use and HDRI environment.
