@@ -49,3 +49,24 @@ Optional, Auto-Bump replaces subdiv and is much faster.
 - Transmission Depth : 0.1+
 - Scatter : White (or other color)
 - Scatter Anisotropy : 1
+
+### Running In Scene
+![Simple Ocean Displace](doc/simpleocean_displace_example.png?raw=true "Displace Modifier Demo")
+
+Thanks to Paul E.'s suggestion, I was able to create a scene setup to use the displacement in Displace modifier. Using the modifier stack to drive that displacement is very slow and less precise, since we don't have Arnold Auto-Bump. However, if you need interactions with scene objects, an approximation of the ocean will allow you to do so.
+
+[Download Example Scene](doc/simpleocean_displace.max)
+
+#### Instructions
+To accomplish this, we will split the output displacement into its x, y and z components. Do so in the Material Editor using an OSL Vector Components node. With these components, we can now drive 3 different Displace modifiers to apply the effect to our modifier stack. After the first 2 Displace modifiers (X and Y), we will use the Data Channel Modifier to apply the correct axis displacement.
+
+1. Split the SimpleOcean Displacement output using the OSL Vector Components node.
+2. After your Plane and UVW Map modifiers, add a Displace Modifier.
+3. Connect the X axis to its Map input and check "Use Existing Mapping".
+4. Next, add a Data Channel Modifier.
+5. Add 1 Vertex Input Operator and 2 Vertex Output Operators. Set them up as follows.
+6. Vertex Input : Position, Z.
+7. Vertex Output 1 : Position, X, Add.
+8. Vertex Output 2 : Position, Z, Substract.
+9. Repeat step 2 to 8 for the Y axis. Make sure you use the Y axis as an input to the Displace Modifier, and as Vertex Output 1 (step 7).
+10. Finally, add the third Displace Modifier. Connect the Z axis, and your done! No need for a Data Channel Modifier on the Z axis.
