@@ -2,9 +2,10 @@
 OSL shaders
 
 ### General Shader Installation
-- You can copy `.osl` and `.ui` files to your OSL directory. For example, `C:\Program Files\Autodesk\3ds Max 2022\Plugins\OSL`.
-- You may also copy this whole directory in that folder, which will add the shader in a sub-menu.
-- You should see the shader in your material editor drop-down on next Max launch.
+- Download the [latest release](https://github.com/p-groarke/fea_osl/releases/latest) and unzip.
+- Copy the `FeaOSL` folder in your OSL directory. For example, `C:\Program Files\Autodesk\3ds Max 2022\Plugins\OSL`.
+- You may also copy the `.osl` and `.ui` files directly, if you do not want a `FeaOSL` sub-directory in your Maps menu.
+- You should see the shader in your material editor drop-down on next 3dsMax launch.
 
 
 ## SimpleOcean
