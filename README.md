@@ -50,7 +50,7 @@ Optional, Auto-Bump replaces subdiv and is much faster.
 - Scatter : White (or other color)
 - Scatter Anisotropy : 1
 
-### Running In Scene
+### Running In Modifier Stack
 ![Simple Ocean Displace](doc/simpleocean_displace_example.png?raw=true "Displace Modifier Demo")
 
 Thanks to Paul E.'s suggestion, I was able to create a scene setup to use the displacement in Displace modifier. Using the modifier stack to drive that displacement is very slow and less precise, since we don't have Arnold Auto-Bump. However, if you need interactions with scene objects, an approximation of the ocean will allow you to do so.
