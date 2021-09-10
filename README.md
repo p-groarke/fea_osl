@@ -55,7 +55,7 @@ Optional, Auto-Bump replaces subdiv and is much faster.
 
 Thanks to Paul E.'s suggestion, I was able to create a scene setup to use the displacement in Displace modifier. Using the modifier stack to drive that displacement is very slow and less precise, since we don't have Arnold Auto-Bump. However, if you need interactions with scene objects, an approximation of the ocean will allow you to do so.
 
-[Download Example Scene](doc/simpleocean_displace.max)
+[Download Example Scene](doc/simpleocean_displace.max?raw=true)
 
 #### Instructions
 To accomplish this, we will split the output displacement into its x, y and z components. Do so in the Material Editor using an OSL Vector Components node. With these components, we can now drive 3 different Displace modifiers to apply the effect to our modifier stack. After the first 2 Displace modifiers (X and Y), we will use the Data Channel Modifier to apply the correct axis displacement.
