@@ -24,6 +24,7 @@ SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacem
 ### Known Issues
 - **Animation doesn't work!**
   - There is currently a bug with the Arnold Properties Displacement map input. Once that is fixed I can test animation.
+- Most Max "Displacement" inputs do not accept Vector Displacement. So out-of-the-box, the displacement will not work with things like the Displace Modifier. There is a workaround however, explained [here](#running-in-modifier-stack).
 - When using very large maps, the ocean generation can be slow.
 - Some of the hashing options aren't ideal and produce banding.
 
