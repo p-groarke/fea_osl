@@ -20,7 +20,7 @@ SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacem
 - Create a Plane of reasonable size. Use the UVW Map modifier and check "XYZ to UVW".
   - The shader works in UV space, so as long as your object has a good UV mapping, you should be good to go.
 - Connect the main output to **Arnold Properties Vector Displacement** map input.
-  - This is important, as the shader outputs vector displacement which isn't compatible with other displace inputs (like Physical Material, Displace modifier, etc).
+  - This is important, as the shader outputs vector displacement which isn't compatible with some displace inputs (like Displace modifier).
 - Use Active Shade to see the results.
 
 ### Known Issues
@@ -56,7 +56,7 @@ Optional, Auto-Bump replaces subdiv and is much faster.
 ### Running In Modifier Stack
 ![Simple Ocean Displace](doc/simpleocean_displace_example.png?raw=true "Displace Modifier Demo")
 
-Thanks to Paul E.'s suggestion, I was able to create a scene setup to use the displacement in Displace modifier. Using the modifier stack to drive that displacement is very slow and less precise, since we don't have Arnold Auto-Bump. However, if you need interactions with scene objects, an approximation of the ocean will allow you to do so.
+Thanks to Paul E.'s suggestion, I was able to create a scene setup to drive the Displace modifier with the map output. Using the modifier stack is very slow and less precise, since we don't have Arnold Auto-Bump. However, if you need interactions with scene objects, an approximation of the ocean will allow you to do so.
 
 [Download Example Scene](doc/simpleocean_displace.max?raw=true)
 
