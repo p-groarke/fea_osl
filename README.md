@@ -10,8 +10,8 @@ OSL shaders
 
 ## SimpleOcean
 
-![Simple Ocean Ex1](doc/simpleocean_test1.png?raw=true "Test Render 1")
-![Simple Ocean Ex2](doc/simpleocean_test2.png?raw=true "Test Render 2 - Simple Foam Shading")
+![Simple Ocean Ex1](doc/simpleocean_test1.png "Test Render 1")
+![Simple Ocean Ex2](doc/simpleocean_test2.png "Test Render 2 - Simple Foam Shading")
 [![Play Demo](doc/simpleocean_play.png)](https://www.youtube.com/watch?v=YeeyUybFUvM "Play Demo & Guide")
 
 SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacement. It isn't highly complex, but should do the job when you need a quick & dirty ocean. The shader outputs a main vector displacement map and multiple utility maps, like foam maps, above sea map, etc.
@@ -54,7 +54,7 @@ Optional, Auto-Bump replaces subdiv and is much faster.
 - Scatter Anisotropy : 1
 
 ### Running In Modifier Stack
-![Simple Ocean Displace](doc/simpleocean_displace_example.png?raw=true "Displace Modifier Demo")
+![Simple Ocean Displace](doc/simpleocean_displace_example.png "Displace Modifier Demo")
 
 Thanks to Paul E.'s suggestion, I was able to create a scene setup to drive the Displace modifier with the map output. Using the modifier stack is very slow and less precise, since we don't have Arnold Auto-Bump. However, if you need interactions with scene objects, an approximation of the ocean will allow you to do so.
 
