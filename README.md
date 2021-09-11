@@ -17,6 +17,8 @@ OSL shaders
 SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacement. It isn't highly complex, but should do the job when you need a quick & dirty ocean. The shader outputs a main vector displacement map and multiple utility maps, like foam maps, above sea map, etc.
 
 ### Getting Started
+- Create a Plane of reasonable size. Use the UVW Map modifier and check "XYZ to UVW".
+  - The shader works in UV space, so as long as your object has a good UV mapping, you should be good to go.
 - Connect the main output to **Arnold Properties Vector Displacement** map input.
   - This is important, as the shader outputs vector displacement which isn't compatible with other displace inputs (like Physical Material, Displace modifier, etc).
 - Use Active Shade to see the results.
