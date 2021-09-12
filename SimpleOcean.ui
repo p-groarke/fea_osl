@@ -132,7 +132,20 @@
        <number>11</number>
       </property>
       <item row="3" column="1" colspan="3">
-       <widget class="QComboBox" name="Randomness"/>
+       <widget class="QComboBox" name="Randomness">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="maxVisibleItems">
+         <number>20</number>
+        </property>
+        <property name="sizeAdjustPolicy">
+         <enum>QComboBox::AdjustToContentsOnFirstShow</enum>
+        </property>
+       </widget>
       </item>
       <item row="8" column="2">
        <spacer name="verticalSpacer_12">
@@ -907,6 +920,41 @@
    <header location="global">Qt/QMaxMultiSpinner.h</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>NumOctaves</tabstop>
+  <tabstop>NumWaves</tabstop>
+  <tabstop>WaveLength</tabstop>
+  <tabstop>Randomness</tabstop>
+  <tabstop>Seed</tabstop>
+  <tabstop>Amplitude</tabstop>
+  <tabstop>AmplitudeDecay</tabstop>
+  <tabstop>RandomizeAmplitude</tabstop>
+  <tabstop>Steepness</tabstop>
+  <tabstop>SteepnessDecay</tabstop>
+  <tabstop>RandomizeSteepness</tabstop>
+  <tabstop>Direction</tabstop>
+  <tabstop>Deviation</tabstop>
+  <tabstop>DeviationGrowth</tabstop>
+  <tabstop>Speed</tabstop>
+  <tabstop>Time</tabstop>
+  <tabstop>Time_map</tabstop>
+  <tabstop>UVSet</tabstop>
+  <tabstop>UVSet_map</tabstop>
+  <tabstop>SeaLevel</tabstop>
+  <tabstop>SeaLevel_map</tabstop>
+  <tabstop>SeaLevelRamp</tabstop>
+  <tabstop>SeaLevelRampSize</tabstop>
+  <tabstop>SeaLevelRampSteepness</tabstop>
+  <tabstop>FoamThreshold</tabstop>
+  <tabstop>FoamThreshold_map</tabstop>
+  <tabstop>FoamRamp</tabstop>
+  <tabstop>FoamRampSize</tabstop>
+  <tabstop>FoamRampSteepness</tabstop>
+  <tabstop>FoamTwoThreshold</tabstop>
+  <tabstop>FoamTwoThreshold_map</tabstop>
+  <tabstop>FoamTwoBrightness</tabstop>
+  <tabstop>FoamTwoBrightness_map</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
