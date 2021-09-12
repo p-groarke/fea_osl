@@ -44,6 +44,7 @@ struct wave_info {
 	float wavelength;
 	float amp;
 	vector dir;
+	vector offset;
 
 	// computed
 	float w;
@@ -93,7 +94,7 @@ void compute_terms(point pos, float t, int num_octaves, int num_waves, output wa
 	for (int j = 0; j < num_octaves; ++j) { 
 		int count = j * num_waves + num_waves;
 		for (int i = j * num_waves; i < count; ++i) {
-			float term = waves[i].w * dot(waves[i].dir, pos) + waves[i].phi * t;
+			float term = waves[i].w * dot(waves[i].dir, pos + waves[i].offset) + waves[i].phi * t;
 
 			waves[i].cos_term = cos(term);
 			waves[i].sin_term = sin(term);
@@ -199,7 +200,7 @@ shader SimpleOcean
 	string label = "Simple Ocean"
 ]]
 (
-	int NumOctaves = 8
+	int NumOctaves = 7
 	[[
 		string help = "Wave batches are generated per octave, going down from the wave length specified.",
 		int min = 1,
@@ -207,7 +208,7 @@ shader SimpleOcean
 		int connectable = 0
 	]],
 
-	int NumWaves = 12
+	int NumWaves = 8
 	[[
 		string help = "Number of waves to generate, per octave.",
 		int min = 1,
@@ -229,11 +230,11 @@ shader SimpleOcean
 		int connectable = 0
 	]],
 
-	string Randomness = "hash 1"
+	string Randomness = "Hash 1"
 	[[
 		string widget= "popup",
 		string help  = "Various noises used to gather entropy.",
-		string options="hash 1|hash 2|hash 3|cell 1|cell 2|rand 1|rand 2|rand 3|perlin|even distribution|simplex",
+		string options="Hash 1|Hash 2|Hash 3|Randy Mc. Randface|Cell 1|Rand 1|Rand 2|Rand 3|Perlin|Even Distribution|Simplex",
 		int connectable = 0
 	]],
 
@@ -243,37 +244,37 @@ shader SimpleOcean
 		int connectable = 0
 	]],
 
-	float WaveLength = 80.0
+	float WaveLength = 40.0
 	[[
 		string help = "The largest wave length. Waves will be generated starting with this value.",
 		int connectable = 0
 	]],
 
-	float Amplitude = 3.0
+	float Amplitude = 1.0
 	[[
 		string help = "The height of the waves.",
 		int connectable = 0
 	]],
 
-	float AmplitudeDecay = 2.0
+	float AmplitudeDecay = 5.0
 	[[
 		string help = "Amplitude is scaled according to the octave frequencies. You can increase the scaling rate (making smaller waves less tall).",
 		float min = 0.0,
 		int connectable = 0
 	]],
 
-	float Steepness = 5.0
+	float Steepness = 7.0
 	[[
 		string help = "How spiky the wave is. Too much steepness will cause crests to curl." \
 			" Depending on your material settings, this can result in a fake foam look.",
 		int connectable = 0
 	]],
 
-	float SteepnessDecay = 0.2
+	float SteepnessDecay = 5.0
 	[[
 		string help = "Steepness is scaled according to the octave frequencies. You can increase or decrease the steepness scaling if you wish.",
 		float min = 0.0,
-		float max = 1.0,
+		// float max = 1.0,
 		int connectable = 0
 	]],
 
@@ -288,10 +289,10 @@ shader SimpleOcean
 
 	float Deviation = 120.0
 	[[
-		string help = "The max angle to deviate from direction, in degrees. Use 180 degrees for waves in all directions.",
+		string help = "The max angle to deviate from direction, in degrees.",
 		string units = "degrees",
 		float min = 0.0,
-		float max = 180.0,
+		float max = 360.0,
 		int connectable = 0
 	]],
 
@@ -421,11 +422,78 @@ shader SimpleOcean
 	// output color DebugMap = 0
 )
 {
+
+	// Screw it.
+	float randy_mcrandface[ARR_SIZE] = {
+		0.7613283154, 0.6417486594, 0.7077160716, 0.2767145632, 0.3459236354, 0.4595805590,
+		0.4221504986, 0.5430591227, 0.7397216781, 0.6009534408, 0.7567760852, 0.4356619047,
+		0.7305973256, 0.8078904319, 0.9670611668, 0.8112846347, 0.8832108729, 0.2371557390,
+		0.9638971629, 0.1849049127, 0.5075650226, 0.6080068042, 0.7992122890, 0.9957855124,
+		0.7726620573, 0.5271973617, 0.6167741389, 0.1633856410, 0.5368961641, 0.9393507032,
+		0.8341412603, 0.1431013143, 0.1222931448, 0.9149053562, 0.6667115294, 0.7362864532,
+		0.6042048595, 0.1710390230, 0.6100750959, 0.9878706709, 0.9662866655, 0.4458209901,
+		0.8420691186, 0.0717683244, 0.9372985664, 0.2519136408, 0.3386565954, 0.5898405778,
+		0.7636390582, 0.0590747309, 0.3200221082, 0.8101507442, 0.0922381526, 0.1751451629,
+		0.8260694506, 0.4569933524, 0.9231153214, 0.2806759626, 0.8814646580, 0.2871386945,
+		0.1294133616, 0.1840314361, 0.7272801375, 0.5209047709, 0.4468515935, 0.0739586178,
+		0.7808635264, 0.1385085642, 0.5818542706, 0.1419560811, 0.4914149198, 0.3984367663,
+		0.5534051739, 0.9021820860, 0.0457077229, 0.9430585064, 0.5832536408, 0.9134246462,
+		0.5584909940, 0.0115561512, 0.5102350494, 0.0843100883, 0.6761218329, 0.8182395543,
+		0.0778287485, 0.7653847158, 0.5508998159, 0.2821854233, 0.2219167320, 0.9900815780,
+		0.0790549319, 0.9048603125, 0.0935980279, 0.9857482777, 0.8467555816, 0.1699877931,
+		0.0481672073, 0.2302571620, 0.4959770668, 0.5960198219, 0.4312765748, 0.1591156525,
+		0.0687268269, 0.4639244974, 0.0731531983, 0.2757107353, 0.6317098928, 0.2759345973,
+		0.0107261248, 0.8062241995, 0.3991566052, 0.4470180022, 0.4447787828, 0.7814391798,
+		0.3507617008, 0.2148204368, 0.0951097680, 0.7792412681, 0.6008316251, 0.4973092279,
+		0.1175454673, 0.8624851465, 0.3561905606, 0.7163313779, 0.1186382648, 0.9134720187,
+		0.6145221594, 0.1339072762, 0.3994272383, 0.9292100772, 0.8215033421, 0.6260928175,
+		0.1578142001, 0.6831931992, 0.4945404445, 0.3332440578, 0.2528690529, 0.7808411693,
+		0.7977090604, 0.6156838816, 0.9647099684, 0.2205307551, 0.1242177648, 0.5828725769,
+		0.6933682418, 0.7172738086, 0.7519134569, 0.2997492017, 0.3270603535, 0.0220112573,
+		0.0187798525, 0.3919452145, 0.5571065984, 0.9738236155, 0.6471761395, 0.7259059581,
+		0.0263854616, 0.8480789135, 0.4626754320, 0.0731667099, 0.8714149142, 0.0847650250,
+		0.0097162705, 0.0560917960, 0.8960117455, 0.6216735959, 0.8982684282, 0.8750739734,
+		0.1650972796, 0.3906805203, 0.3209709014, 0.4877145134, 0.0306574656, 0.5971331151,
+		0.6189258743, 0.4184951607, 0.8335943660, 0.1242530933, 0.8798338352, 0.5833763266,
+		0.8094074573, 0.5254715167, 0.3668876261, 0.1422191387, 0.1721910074, 0.2026817602,
+		0.2119211370, 0.6253000589, 0.4904723281, 0.5218543811, 0.9301133550, 0.9683309118,
+		0.3661083587, 0.2307221251, 0.3787893454, 0.4751772670, 0.0579906878, 0.1768354991,
+		0.8891576681, 0.1431432921, 0.4797410106, 0.2663625361, 0.8325811059, 0.5140320869,
+		0.7597127482, 0.0470517628, 0.5803547234, 0.3548459410, 0.2100508372, 0.5428815615,
+		0.1411484061, 0.3602227092, 0.7215295438, 0.5434041909, 0.1822010627, 0.8677546826,
+		0.7585891515, 0.9008217104, 0.6470395283, 0.8681916740, 0.4534938072, 0.3995711447,
+		0.8564553250, 0.0570914895, 0.6910691710, 0.5583367680, 0.5398101111, 0.7521228693,
+		0.7568702395, 0.8925501029, 0.6770392693, 0.9093505238, 0.9102231200, 0.2661670667,
+		0.1226216037, 0.8111049737, 0.2353793834, 0.7364151392, 0.4747462044, 0.9299663536,
+		0.8123320081, 0.6555540549, 0.7453898179, 0.3053406749, 0.3159677258, 0.7146935034,
+		0.4320777924, 0.8925243566, 0.1110892016, 0.4212926955, 0.8471286552, 0.4607157468,
+		0.5123215652, 0.1875337625, 0.7745056160, 0.3593490972, 0.5003064330, 0.9421407414,
+		0.6629999877, 0.1430016877, 0.3685406819, 0.5161234146, 0.8825954808, 0.8835394491,
+		0.8222370408, 0.2594687195, 0.4559979994, 0.5882772874, 0.0754071303, 0.1083060122,
+		0.7392239567, 0.6197596061, 0.5819020307, 0.7951468252, 0.7117926842, 0.2702588942,
+		0.1472675702, 0.0637894921, 0.9838483921, 0.7359211919, 0.0214477716, 0.9105100154,
+		0.3542747739, 0.6448500090, 0.9145919663, 0.4144151693, 0.0563616620, 0.8628780555,
+		0.4093985005, 0.9681249187, 0.5956522112, 0.4876563354, 0.2623010908, 0.2294213032,
+		0.1300411096, 0.8833217846, 0.1880329714, 0.1318175852, 0.4766515362, 0.7480518772,
+		0.6049902499, 0.5670014017, 0.8094345290, 0.0488128479, 0.3806065262, 0.5129413053,
+		0.8827513878, 0.3742173559, 0.5897817464, 0.1265311938, 0.1666639114, 0.3513735293,
+		0.0268498170, 0.5559057612, 0.2938191986, 0.4754748694, 0.1886570996, 0.1506464087,
+		0.8847426608, 0.4884451589, 0.4350855332, 0.9345445426, 0.4099686316, 0.7942126964,
+		0.9765494371, 0.0297738076, 0.0198415258, 0.3841140226, 0.6416234156, 0.9758983813,
+		0.6127427981, 0.7106013024, 0.1153512188, 0.6440086521, 0.9619477967, 0.4960318780,
+		0.1374903689, 0.0664052156, 0.3181687044, 0.5267333783, 0.3895587626, 0.3595304375,
+		0.0330008479, 0.6608198678, 0.7672469086, 0.3995902480, 0.7524112037, 0.7605942560,
+		0.1179058104, 0.0814233157, 0.7398095277, 0.4125950086, 0.8702069902, 0.4078816518,
+		0.1060588817, 0.5912999079, 0.3719537622, 0.4171108244, 0.3215406658, 0.1411436386,
+		0.5832609558, 0.4554747267, 0.0141743945, 0.4657320091, 0.6624735639, 0.5576015787,
+		0.7421591684, 0.3185219243, 0.6550715958, 0.3824203749, 0.2708995102, 0.7972102891,
+		0.3792130014, 0.2413789324, 0.3362235952, 0.4771132808, 0.7399085797, 0.0936726877,
+		0.1454969690, 0.7006940519, 0.5992551756, 0.2845851767, 0.4452032488, 0.5779639096
+	};
+
+
 	// Array of waves settings.
 	wave_info waves[ARR_SIZE];
-
-	// Used to change amplitude according to wave size.
-	float amp_ratio = Amplitude / WaveLength;
 
 	vector right = { 1.0, 0.0, 0.0 };
 	int total_waves = NumOctaves * NumWaves;
@@ -446,54 +514,64 @@ shader SimpleOcean
 			float norm_seed = local_seed / float(NumWaves);
 
 			float rng = 0.0;
-			if (Randomness == "hash 1") {
+			if (Randomness == "Hash 1") {
 				rng = noise("hash", local_idx, local_seed);
-			} else if (Randomness == "hash 2") {
-				rng = noise("hash", norm_idx, norm_seed);
-			} else if (Randomness == "hash 3") {
+			} else if (Randomness == "Hash 2") {
+				rng = noise("hash", norm_idx, norm_seed + norm_idx);
+			} else if (Randomness == "Hash 3") {
 				rng = noise("hash", abs_idx, abs_seed);
-			} else if (Randomness == "cell 1") {
+			} else if (Randomness == "Randy Mc. Randface") {
+				rng = randy_mcrandface[i];
+			} else if (Randomness == "Cell 1") {
 				rng = noise("cell", abs_idx, abs_seed);
-			} else if (Randomness == "cell 2") {
-				rng = noise("cell", local_idx, local_seed);
-			} else if (Randomness == "rand 1") {
+			} else if (Randomness == "Rand 1") {
 				rng = rand(abs_idx);
-			} else if (Randomness == "rand 2") {
+			} else if (Randomness == "Rand 2") {
 				rng = rand(norm_idx);
-			} else if (Randomness == "rand 3") {
+			} else if (Randomness == "Rand 3") {
 				rng = rand(local_idx);
-			} else if (Randomness == "perlin") {
+			} else if (Randomness == "Perlin") {
 				rng = noise("uperlin", norm_idx, norm_seed);
-			} else if (Randomness == "even distribution") {
+			} else if (Randomness == "Even Distribution") {
 				rng = norm_idx;
-			} else if (Randomness == "simplex") {
+			} else if (Randomness == "Simplex") {
 				rng = noise("usimplex", norm_idx, norm_seed);
 			}
-
 			// too heavy :/ provide noise map input?
 			// float rng = fabs(noise("gabor", norm_idx));
+
+			// rng = mod(rng + randy_mcrandface[i], 1.0);
+			rng = mod(rng, 1.0);
 
 			float wlength = mix(min_wavelength, max_wavelength, rng);
 			float decay_per = float(j) / float(NumOctaves);
 
 			float amp_decay = 1.0 / (1.0 + (decay_per * AmplitudeDecay));
-			float amp = wlength * amp_ratio * amp_decay;
+
+			// Amp 1 == Wavelength
+			float amp = (wlength * Amplitude * amp_decay) / NumWaves;
 
 			float w = wave_w(wlength);
 
-			float steep_decay = 1.0 / (1.0 + (decay_per * SteepnessDecay * Steepness));
+			float steep_decay = 1.0 / (1.0 + (decay_per * SteepnessDecay));
 			float steep = Steepness * steep_decay;
 			float q = wave_q(steep, w, amp, float(total_waves));
 
 			float phi = wave_phi(Speed, wlength);
 
 			float angle = Direction;
-			angle += mix(-Deviation, Deviation, rng);
+			float dev = Deviation / 2.0;
+			angle += mix(-dev, dev, rng);
 			vector my_dir = rotate(right, radians(angle), vector(0.0, 0.0, 1.0));
+
+			vector my_offset = vector(0,0,0);
+			float off = i * wlength + rng * wlength;
+			my_offset = vector(off, off, 0.0);
 
 			waves[i].wavelength = wlength;
 			waves[i].amp = amp;
 			waves[i].dir = my_dir;
+			waves[i].offset = my_offset;
 			waves[i].w = w;
 			waves[i].q = q;
 			waves[i].phi = phi;
