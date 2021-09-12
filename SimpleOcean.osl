@@ -512,7 +512,6 @@ shader SimpleOcean
 		0.1454969690, 0.7006940519, 0.5992551756, 0.2845851767, 0.4452032488, 0.5779639096
 	};
 
-
 	// Array of waves settings.
 	wave_info waves[ARR_SIZE];
 
@@ -542,7 +541,7 @@ shader SimpleOcean
 			} else if (Randomness == "Hash 3") {
 				rng = noise("hash", abs_idx, abs_seed);
 			} else if (Randomness == "Randy Mc. Randface") {
-				rng = randy_mcrandface[i];
+				rng = randy_mcrandface[(i + Seed) % ARR_SIZE];
 			} else if (Randomness == "Cell 1") {
 				rng = noise("cell", abs_idx, abs_seed);
 			} else if (Randomness == "Rand 1") {
@@ -596,7 +595,7 @@ shader SimpleOcean
 			float phi = wave_phi(Speed, wlength);
 
 			// The angle is randomly rotated between the allowed range.
-			// The smaller the waves, the less the angle range (to reduce banding).
+			// The smaller the waves, the higher the angle range (to reduce banding).
 			float angle = Direction;
 			float dev_growth = 1.0 + decay_per * DeviationGrowth;
 			float dev = Deviation * dev_growth;
