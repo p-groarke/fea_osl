@@ -263,6 +263,13 @@ shader SimpleOcean
 		int connectable = 0
 	]],
 
+	int RandomizeAmplitude = 0
+	[[
+		string help  = "Randomize amplitude with values around your provided amplitude.",
+		string widget= "checkBox",
+		int connectable = 0
+	]],
+
 	float Steepness = 7.0
 	[[
 		string help = "How spiky the wave is. Too much steepness will cause crests to curl." \
@@ -275,6 +282,13 @@ shader SimpleOcean
 		string help = "Steepness is scaled according to the octave frequencies. You can increase or decrease the steepness scaling if you wish.",
 		float min = 0.0,
 		// float max = 1.0,
+		int connectable = 0
+	]],
+
+	int RandomizeSteepness = 0
+	[[
+		string help  = "Randomize Steepness with values around your provided steepness.",
+		string widget= "checkBox",
 		int connectable = 0
 	]],
 
@@ -293,6 +307,13 @@ shader SimpleOcean
 		string units = "degrees",
 		float min = 0.0,
 		float max = 360.0,
+		int connectable = 0
+	]],
+
+	float DeviationGrowth = 5.0
+	[[
+		string help = "This parameter affects Deviation increase of smaller waves. "
+		"It helps reduce banding and tiling, while keeping the general wave direction intact.",
 		int connectable = 0
 	]],
 
@@ -546,22 +567,41 @@ shader SimpleOcean
 			float wlength = mix(min_wavelength, max_wavelength, rng);
 			float decay_per = float(j) / float(NumOctaves);
 
-			float amp_decay = 1.0 / (1.0 + (decay_per * AmplitudeDecay));
+			// As waves get smaller, make their amplitude smaller.
+			float amp_decay = 1.0 / (1.0 + decay_per * AmplitudeDecay);
 
-			// Amp 1 == Wavelength
-			float amp = (wlength * Amplitude * amp_decay) / NumWaves;
+			// Add randomization to amplitude.
+			float in_amp = Amplitude;
+			if (RandomizeAmplitude) {
+				in_amp *= (rng * 2.0);
+			}
+
+			// Amp 1 ~= Wavelength
+			float amp = (wlength * in_amp * amp_decay) / NumWaves;
 
 			float w = wave_w(wlength);
 
-			float steep_decay = 1.0 / (1.0 + (decay_per * SteepnessDecay));
-			float steep = Steepness * steep_decay;
+			// As waves get smaller, so does decay.
+			float steep_decay = 1.0 / (1.0 + decay_per * SteepnessDecay);
+
+			// Add randomization to steepness.
+			float in_steepness = Steepness;
+			if (RandomizeSteepness) {
+				in_steepness *= (rng * 2.0);
+			}
+
+			float steep = in_steepness * steep_decay;
 			float q = wave_q(steep, w, amp, float(total_waves));
 
 			float phi = wave_phi(Speed, wlength);
 
+			// The angle is randomly rotated between the allowed range.
+			// The smaller the waves, the less the angle range (to reduce banding).
 			float angle = Direction;
-			float dev = Deviation / 2.0;
-			angle += mix(-dev, dev, rng);
+			float dev_growth = 1.0 + decay_per * DeviationGrowth;
+			float dev = Deviation * dev_growth;
+
+			angle += mix(0.0, dev, rng) - (dev / 2.0);
 			vector my_dir = rotate(right, radians(angle), vector(0.0, 0.0, 1.0));
 
 			vector my_offset = vector(0,0,0);
