@@ -1,7 +1,7 @@
 # fea_osl
 OSL shaders
 
-### General Shader Installation
+## Shader Installation
 - Download the [latest release](https://github.com/p-groarke/fea_osl/releases/latest) and unzip.
 - Copy the `FeaOSL` folder in your OSL directory. For example, `C:\Program Files\Autodesk\3ds Max 2022\Plugins\OSL`.
 - You may also copy the `.osl` and `.ui` files directly, if you do not want a `FeaOSL` sub-directory in your Maps menu.
@@ -9,12 +9,11 @@ OSL shaders
 
 
 ## SimpleOcean
-
-![Simple Ocean Ex1](doc/simpleocean_test1.png "Test Render 1")
-![Simple Ocean Ex2](doc/simpleocean_test2.png "Test Render 2 - Simple Foam Shading")
-[![Play Demo](doc/simpleocean_play.png)](https://www.youtube.com/watch?v=YeeyUybFUvM "Play Demo & Guide")
-
 SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacement. It isn't highly complex, but should do the job when you need a quick & dirty ocean. The shader outputs a main vector displacement map and multiple utility maps, like foam maps, above sea map, etc.
+
+<img src="doc/simpleocean_test1.png" width="49%" title="Test Render 1" alt="Shader Example"> <img src="doc/simpleocean_test2.png" width="49%" title="Test Render 2 - Simple Foam Shading" alt="Shader Example">
+<img src="doc/simpleocean_1.1_deep_turbulent.png" width="49%" title="v1.1 - Test Render Turbulent Ocean" alt="Shader Example"> <img src="doc/simpleocean_1.1_shallow_lake.png" width="49%" title="v1.1 - Test Render Calm Lake" alt="Shader Example">
+<a href="https://www.youtube.com/watch?v=YeeyUybFUvM"><img src="doc/simpleocean_play.png" width="98.5%" title="Play Demo"></a>
 
 ### Getting Started
 - Create a Plane of reasonable size. Use the UVW Map modifier and check "XYZ to UVW".
