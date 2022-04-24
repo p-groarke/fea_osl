@@ -13,11 +13,11 @@ Curvalicious is a fast (no raytracing) screen-space curvature shader. It outputs
 
 <img src="doc/img/curvalicious_curvature_crab.png" width="49%" title="Curvature Map" alt="Shader Example">
 
-[More details](docs/curvalicious.md)
+[More details](doc/curvalicious.md)
 
 ## SimpleOcean
 SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacement. It isn't highly complex, but should do the job when you need a quick & dirty ocean. The shader outputs a main vector displacement map and multiple utility maps, like foam maps, above sea map, etc.
 
 <img src="doc/img/simpleocean_test1.png" width="49%" title="Test Render 1" alt="Shader Example">
 
-[More details](docs/simple_ocean.md)
+[More details](doc/simple_ocean.md)

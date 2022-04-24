@@ -6,22 +6,22 @@ It is implemented using [Vergne et al. 2009](#citation) with additional processe
 ### Curvature Map
 A red/blue map. Red curves are concave, blue curves are convex, black denotes little curvature.
 
-<img src="doc/img/curvalicious_curvature_crab.png" width="49%" title="Curvature Map" alt="Shader Example"> <img src="doc/img/curvalicious_curvature.png" width="49%" title="Curvature Map" alt="Shader Example">
+<img src="img/curvalicious_curvature_crab.png" width="49%" title="Curvature Map" alt="Shader Example"> <img src="img/curvalicious_curvature.png" width="49%" title="Curvature Map" alt="Shader Example">
 
 ### Curvature Grayscale Map
 Same as curvature map, but in grayscale. Ignores concave / convex differentiation.
 
-<img src="doc/img/curvalicious_curvature_grayscale_crab.png" width="49%" title="Curvature Grayscale Map" alt="Shader Example"> <img src="doc/img/curvalicious_curvature_grayscale.png" width="49%" title="Curvature Grayscale Map" alt="Shader Example">
+<img src="img/curvalicious_curvature_grayscale_crab.png" width="49%" title="Curvature Grayscale Map" alt="Shader Example"> <img src="img/curvalicious_curvature_grayscale.png" width="49%" title="Curvature Grayscale Map" alt="Shader Example">
 
 ### Edge Detect Map
 A typical edge detect algorithm, ran using the screen-space curvature extracted at previous stages.
 
-<img src="doc/img/curvalicious_edge_detect_crab.png" width="49%" title="Edge Detect Map" alt="Shader Example"> <img src="doc/img/curvalicious_edge_detect.png" width="49%" title="Edge Detect Map" alt="Shader Example">
+<img src="img/curvalicious_edge_detect_crab.png" width="49%" title="Edge Detect Map" alt="Shader Example"> <img src="img/curvalicious_edge_detect.png" width="49%" title="Edge Detect Map" alt="Shader Example">
 
 ### Concave Triangles Map
 Marks concave triangles in white (convex in black).
 
-<img src="doc/img/curvalicious_concave_tris_crab.png" width="49%" title="Concave Tris Map" alt="Shader Example"> <img src="doc/img/curvalicious_concave_tris.png" width="49%" title="Concave Tris Map" alt="Shader Example">
+<img src="img/curvalicious_concave_tris_crab.png" width="49%" title="Concave Tris Map" alt="Shader Example"> <img src="img/curvalicious_concave_tris.png" width="49%" title="Concave Tris Map" alt="Shader Example">
 
 ## Known Issues
 - Currently unsupported in Arnold.
