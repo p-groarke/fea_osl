@@ -1,0 +1,178 @@
+// Curvalicious Shader - Screen Space Curvature Tools
+// Curvalicious by Philippe Groarke
+// Modified: 2022-04-23
+// Copyright 2022 Autodesk Inc, All rights reserved. This file is licensed under Apache 2.0 license
+//    https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+/*
+Implementation of screen-space normal field curvature from :
+Light Warping for Enhanced Surface Depiction
+Vergne et al. 2009
+
+Romain Vergne, Romain Pacanowski, Pascal Barla, Xavier Granier, Christophe Schlick.
+Light Warping for Enhanced Surface Depiction.
+ACM Transactions on Graphics, Association for Computing Machinery, 2009, 28 (3), pp.25:1–25:8.
+ff10.1145/1531326.1531331ff. ffinria-00400829
+https://hal.inria.fr/inria-00400829
+
+Addendum,
+
+Silhouette elimination in screen-space normal field curvature analysis.
+
+The Vergne et al. technique emphasizes silhouettes as curvature. To
+correct this, we multiple the gradient (gx, gy) by a correction factor. We
+use the absolute value of camera space Normal z. Nz is equivalent to the dot
+product of our current sample with the camera. By doing so, we effectively
+"flatten" the 3d mesh in screen-space, which allows us to extract its local
+height information without the bias. The gradient is also normalized to pixel
+size, scaling with camera distance.
+
+Epsilon edge case.
+
+The algorithm cannot divide by zero. When Normal z is below an epsilon
+threshold, we assign Nz = epsilon. Doing so, and using the new value throughout,
+fixes this issue. If we do not, the edge detection will identify
+edges at neighboring samples of invalid Nz, which causes visual artifacting.
+We cannot simply set invalid samples to 0, or use diverging if statements
+due to Dx and how it works.
+*/
+
+shader Curvalicious
+[[
+	string help  =
+		"<h3>Curvalicious</h3>"
+		"Screen-space curvature tools.<br>"
+		"Very fast curvature, edge, concave/convex approximation maps.<br>"
+		"Caveat, doesn't deal with hard edges."
+		,
+	string label = "Curvalicious"
+]]
+(
+	float CurvatureStrength = 0.2
+	[[
+		string label = "Curvature - Strength",
+		string help = "Increases candidates for the curvature map.",
+		int connectable = 0
+	]],
+
+	float CurvatureThreshold = 0.0
+	[[
+		string label = "Curvature - Threshold",
+		string help = "Curves below this threshold will be ignored.",
+		int connectable = 0
+	]],
+
+	float EdgeDetectStrength = 0.1
+	[[
+		string label = "Edge Detect - Strength",
+		string help = "Increases edge candidates for the edge detect map.",
+		int connectable = 0
+	]],
+
+	float EdgeDetectThreshold = 0.0
+	[[
+		string label = "Edge Detect - Threshold",
+		string help = "Edges below this value will be ignored.",
+		int connectable = 0
+	]],
+
+	float ConcaveBias = 0.0
+	[[
+		string label = "Concave Tris - Bias",
+		string help = "Increase or decrease the concave candidates for detection.",
+		int connectable = 0
+	]],
+
+	output color Curvature = 0
+	[[
+		string label = "Curvature",
+		string help = "Curvature map with convex edges blue, concave edges red."
+	]],
+
+	output color CurvatureGrayscale = 0
+	[[
+		string label = "Curvature Grayscale",
+		string help = "Curvature map."
+	]],
+
+	output color EdgeDetect = 0
+	[[
+		string label = "Edge Detect",
+		string help = "Typical edge detection output."
+	]],
+
+	output color ConcaveTris = 0
+	[[
+		string label = "Concave Tris",
+		string help = "Marks concave triangles white, convex black."
+	]]
+)
+{
+	vector posc = transform("camera", P);
+	vector scale = filterwidth(posc);
+
+	// Used to normalize our outputs to screen space scale.
+	float pixel_scale = sqrt(scale[0] * scale[0] + scale[1] * scale[1]);
+
+	// We work in camera space.
+	vector n = transform("camera", N);
+	float eps = 0.00001;
+	float abs_n2 = abs(n[2]);
+	int invalid = abs_n2 < eps;
+
+	// Nice way to get ~ Sobel gradient, since Dx(Dx()) is undefined.
+	float nz = invalid ? eps : abs_n2;
+	float gx = -n[0] / nz;
+	float gy = -n[1] / nz;
+
+	// Modulate the gradient by the inverse of the
+	// angle to the camera. Minimizes "false-positives"
+	// for mesh shell.
+	float angle_correction = invalid ? eps : abs_n2;
+
+	// Gradient of gradient.
+	float dgx = Dx(gx * angle_correction) / pixel_scale;
+	float dgy = Dy(gy * angle_correction) / pixel_scale;
+
+	// Edge Detect
+	// Helper map which outputs "traditional" edge detect according to
+	// sobel magnitude.
+	{
+		// Grayscale edge detect == approx sobel magnitude.
+		float val = sqrt(dgx * dgx + dgy * dgy);
+		val = val < EdgeDetectThreshold ? 0.0 : val;
+		EdgeDetect = val * EdgeDetectStrength;
+	}
+
+	// Hessian
+	float Ku = (gx + dgx) - (gx - dgx);
+	float Kv = (gy + dgy) - (gy - dgy);
+	float h = (Ku + Kv) / 2.0;
+
+	// Concave / Convex Triangles
+	// Helper map that marks concave tris red, or convex tris blue.
+	{
+		float h2 = h - ConcaveBias;
+		// Use a low epsilon for artifacting in flat faces.
+		ConcaveTris = h2 < 0.00001 ? color(0) : color(1);
+	}
+
+	// Concave / Convex Edge Detect
+	{
+		float h2 = abs(h) < CurvatureThreshold ? eps : h;
+		h2 *= CurvatureStrength;
+
+		CurvatureGrayscale = abs(h2);
+
+		color col;
+		if (abs(h2) <= eps) {
+			col = 0;
+		} else if (h2 < 0.0) {
+			col = mix(color(0), color(0,0,1), -h2);
+		} else {
+			col = mix(color(0), color(1,0,0), h2);
+		}
+		Curvature = col;
+	}
+}
+
