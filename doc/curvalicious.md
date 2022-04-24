@@ -3,6 +3,8 @@ Curvalicious is a fast (no raytracing) screen-space curvature OSL shader. It out
 
 It is implemented using [Vergne et al. 2009](#citation) with additional processes to improve detection at silhouette and for invalid samples (samples perpendicular to camera). These additions make the detection much more stable at different viewing angles.
 
+<a href="https://www.youtube.com/watch?v=hg3oJkCNjzg"><img src="img/curvalicious_play.png" width="98.5%" title="Play Demo"></a>
+
 ### Curvature Map
 A red/blue map. Red curves are concave, blue curves are convex, black denotes little curvature.
 
@@ -24,6 +26,7 @@ Marks concave triangles in white (convex in black).
 <img src="img/curvalicious_concave_tris_crab.png" width="49%" title="Concave Tris Map" alt="Shader Example"> <img src="img/curvalicious_concave_tris.png" width="13.25%" title="Concave Tris Map" alt="Shader Example">
 
 ## Known Issues
+- Doesn't deal well with hard edges / flat surfaces.
 - Currently unsupported in Arnold.
   - The shader use OSL derivative functionality (`Dx`, `Dy`, `filterwidth`), which isn't supported in Arnold currently.
 
