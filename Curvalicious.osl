@@ -1,0 +1,318 @@
+// Curvalicious Shader - Screen Space Curvature Tools
+// Curvalicious by Philippe Groarke
+// Modified: 2022-04-23
+// Copyright 2022 Autodesk Inc, All rights reserved. This file is licensed under Apache 2.0 license
+//    https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+//
+// Implementation of screen space mean curvature from :
+// Light Warping for Enhanced Surface Depiction
+// Vergne et al.
+//
+// Romain Vergne, Romain Pacanowski, Pascal Barla, Xavier Granier, Christophe Schlick.
+// Light Warping for Enhanced Surface Depiction.
+// ACM Transactions on Graphics, Association for Computing Machinery, 2009, 28 (3), pp.25:1–25:8.
+// ff10.1145/1531326.1531331ff. ffinria-00400829
+// https://hal.inria.fr/inria-00400829
+
+
+// x kernel (inverted)
+// -1 0 1
+// -2 0 2
+// -1 0 1
+
+// y kernel (inverted)
+// -1 -2 -1
+//  0  0  0
+//  1  2  1
+
+// (very) approximate sobel filter of input value.
+// returns magnitude of gradient.
+void sobel_filter(float c, output float gx, output float gy, output float mag, output float dir) {
+	// get approximate neighbouring values :
+	// tl t tr
+	// l  c  r
+	// bl b br
+	float dx = Dx(c);
+	float dy = Dy(c);
+
+	float tl = c - dx + dy;
+	float t = c + dy;
+	float tr = c + dx + dy;
+	float l = c - dx;
+	float r = c + dx;
+	float bl = c - dx - dy;
+	float b = c - dy;
+	float br = c + dx - dy;
+
+	gx = -tl + tr - 2.0 * l + 2.0 * r - br + br;
+	gy = -tl - 2.0 * t - tr + bl + 2.0 * b + br;
+	mag = sqrt(gx * gx + gy * gy);
+	dir = atan2(gy, gx);
+}
+
+shader Curvalicious
+[[
+	string help  =
+		"<h3>Curvalicious</h3>"
+		"Screen-space curvature tools.<br>"
+		"Very fast curvature, edge, concave/convex approximation maps.<br>"
+		"Caveats : False-positives at high angle fragments. Doesn't deal with hard edges."
+		,
+	string label = "Curvalicious"
+]]
+(
+	// vector Displacement = 0.0,
+	float EdgeDetectStrength = 0.1
+	[[
+		string label = "Edge Detect - Strength",
+		string help = "Increasing this value increases edge candidates for the EdgeDetect map.",
+		int connectable = 0
+	]],
+
+	output color Out = 0
+	[[
+		string help = ""
+	]],
+
+	output color EdgeDetect = 0
+	[[
+		string label = "Edge Detect",
+		string help = "Typical edge detection output."
+	]],
+
+	output color ConcaveConvexFaces = 0
+	[[
+		string label = "Concave/Convex Faces",
+		string help = "Marks and colors concave (red) or convex (blue) faces."
+	]]
+
+	// output color OutDv = 0
+	// [[
+	// 	string help = ""
+	// ]]
+)
+{
+	// well damn good to know
+	// vector dN = normalize(cross(dPdu, dPdv));
+
+	// camera position stuff
+	// vector cam_pos = transform("world", "camera", point(0));
+	// vector obj_pos = transform("world", "object", point(0));
+	// float cam_obj_dist = distance(cam_pos, obj_pos);
+
+	vector posc = transform("camera", P);
+	vector scale = filterwidth(posc);
+
+	// Used to normalize our outputs to screen space scale.
+	float pixel_scale = sqrt(scale[0] * scale[0] + scale[1] * scale[1]);
+
+	// sobel filter
+	{
+		
+		// Distance from camera plane.
+		float depth = -posc[2] / pixel_scale;
+
+		float gx, gy, gmag, gdir;
+		sobel_filter(depth, gx, gy, gmag, gdir);
+		Out = color(gx, gy, 0);
+		Out = gdir;
+		Out = rotate(vector(1,0,0), gdir, vector(0,0,1));
+		// return;
+
+		float depth_change = scale[2] / pixel_scale;
+		// Out = depth_change;
+		// if (depth_change > 1) {
+		// 	Out = 1;
+		// 	return;
+		// }
+		// Out = 0;
+		// return;
+		// Out = color(scale[0] / pixel_scale,  0);
+
+		
+		// float ddx = Dx(depth);
+		// float ddy = Dy(depth);
+		// // normalized by "zoom level"
+		// float depth_grad = abs(ddx) / scale[0] + abs(ddy) / scale[1];
+		// Out = color(abs(ddx) / scale[0], abs(ddy) / scale[1], 0);
+
+	}
+	{
+
+		vector n = transform("camera", N);
+		float nz = n[2];
+		float gx = -n[0] / nz;
+		float gy = -n[1] / nz;
+		// Out = color(gx, gy, 0);
+		// return;
+
+
+		// Out = pos[2] / cam_dist;
+		// Out = cam_dist;
+
+	}
+
+	// return;
+
+	// Edge detect.
+	{
+		// float depth = -posc[2] / pixel_scale;
+		// // float depth = distance(P, transform("world", "camera", point(0))) / pixel_scale;
+		// EdgeDetect = depth;
+		// return;
+		// float gx = Dx(depth);
+		// float gy = Dy(depth);
+		// float deltax = Dx(gx);
+		// float deltay = Dy(gy);
+
+		vector n = transform("camera", N);
+		float eps = 0.00000001;
+		float abs_n2 = abs(n[2]);
+		int invalid = abs_n2 < eps;
+
+		// Neighborhood invalid samples.
+		// If we don't eliminate ourselves, a hard edge
+		// is detected in the transition of invalid -> valid.
+		// float n_absxneg = abs_n2 - Dx(abs_n2);
+		float n_absxpos = abs_n2 + Dx(abs_n2);
+		// float n_absyneg = abs_n2 - Dy(abs_n2);
+		float n_absypos = abs_n2 + Dy(abs_n2);
+		// int neighbour_invalid = n_absxpos < eps || n_absypos < eps;
+
+		int neighbour_invalid_x = Dx(invalid) != 0;
+		int neighbour_invalid_y = Dy(invalid) != 0;
+		// int neighbour_invalid = abs_n2 - Dx(abs_n2) < eps;
+		// int neighbour_invalid = neighbour_invalid_x || neighbour_invalid_y;
+		int neighbour_invalid = filterwidth(invalid) != 0;
+		// EdgeDetect = neighbour_invalid;
+		// return;
+
+		// if (neighbour_invalid) {
+		// 	EdgeDetect = color(0,1,0);
+		// 	return;
+		// }
+
+		// if (invalid) {
+		// 	EdgeDetect = color(1, 0, 0);
+		// 	return;
+		// }
+
+		float nz = invalid ? 0.01 : n[2];
+		nz = neighbour_invalid ? 0.01 : nz;
+		float gx = -n[0] / nz;
+		float gy = -n[1] / nz;
+		// float nzx = neighbour_invalid_x ? 1000.0 : nz;
+		// float nzy = neighbour_invalid_y ? 1000.0 : nz;
+		// float gx = -n[0] / nzx;
+		// float gy = -n[1] / nzy;
+
+		// Modulate the gradient by the inverse of the
+		// angle to the camera. Minimizes "false-positives"
+		// for mesh shell.
+		// float correct = abs_n2 < 0.3 ? 0.0 : abs_n2;
+		float dgx = Dx(gx * abs_n2);
+		float dgy = Dy(gy * abs_n2);
+
+		// float Ku = (gx + scale[0]) - (gx - scale[0]);
+		// float Kv = (gy + scale[1]) - (gy - scale[1]);
+		float Ku = (gx + dgx) - (gx - dgx);
+		float Kv = (gy + dgy) - (gy - dgy);
+		// EdgeDetect = sqrt(gx * gx + gy * gy);
+		// EdgeDetect = sqrt(Ku * Ku + Kv * Kv);
+
+		// ~ Sobel magnitude.
+		EdgeDetect = (sqrt(dgx * dgx + dgy * dgy) / pixel_scale) * EdgeDetectStrength;
+		// if (EdgeDetect[0] > 1) {
+		// 	EdgeDetect = color(1, 0, 0);
+		// }
+
+
+		// EdgeDetect = sqrt(gx * gx + gy * gy);
+	}
+
+	// hessian
+	{
+		float zero = 0.15;
+		vector n = transform("camera", N);
+		// n = N;
+
+		// if (abs(n[2]) < zero) {
+		// 	Out = 1;
+		// 	return;
+		// }
+
+		// When silhouette is true, the curvature will be
+		// incorrect due to camera -> sample being closely perpendicular.
+		// Aka, this is the "shell".
+		int silhouette = abs(n[2]) < zero;
+
+		// Cannot desync registers with if because of Dx Dy.
+		// Compute everything for filtered out samples,
+		// than process at later stage.
+		float nz = silhouette ? 100.0 : n[2];
+
+		// g is depth gradient.
+		float gx = -n[0] / nz;
+		float gy = -n[1] / nz;
+
+
+		float dgxx = Dx(gx);
+		// float dgxy = Dy(gx);
+		// float dgyx = Dx(gy);
+		float dgyy = Dy(gy);
+
+		// rightward/downward gradient of g
+		float Ku = (gx + dgxx) - (gx - dgxx);
+		float Kv = (gy + dgyy) - (gy - dgyy);
+		// float Kuv = (gx + dgxy) - (gx - dgxy);
+		// float Kvu = (gy + dgyx) - (gy - dgyx);
+
+		float h = (Ku + Kv) / 2.0;
+
+		// Out = sqrt(Ku * Ku + Kv * Kv);
+		// return;
+
+		// Output helper map that marks concave or convex faces.
+		if (abs(h) < 0.000001) {
+			// Case near zero is invalid and can produce artifacting.
+			ConcaveConvexFaces = 0;
+		} else {
+			ConcaveConvexFaces = h < 0.0 ? color(0,0,1) : color(1,0,0);
+		}
+
+		float h_denum = abs(h);
+		// if (h_denum > 1.0) {
+		// 	Out = 1;
+		// 	return;
+		// }
+
+		// if (silhouette) {
+		// 	Out = 1;
+		// 	return;
+		// }
+
+		// h /= h_denum;
+		// h = normalize(h);
+		// h = abs(h);
+
+		// float c = tanh(-(Ku + Kv) / 2.0);
+		// Out = color(0, h, 0);
+		// return;
+
+		color col;
+		if (abs(h) < zero) {
+			col = 0;
+		// } else if (abs(h) < 0.25) {
+		// 	col = 1;
+		} else if (h < 0.0) {
+			// float h2 = clamp(-h, 0.0, 1.0);
+			col = mix(color(0), color(0,0,1), -h);
+		} else {
+			// float h2 = clamp(h, 0.0, 1.0);
+			col = mix(color(0), color(1,0,0), h);
+		}
+		Out = col;
+
+	}
+}
+
