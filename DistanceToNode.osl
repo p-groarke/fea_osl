@@ -1,0 +1,89 @@
+// DistanceToNode Shader
+// DistanceToNode by Philippe Groarke
+// Modified: 2022-06-24
+// Copyright 2022 Autodesk Inc, All rights reserved. This file is licensed under Apache 2.0 license
+//    https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+// Play with k,
+// https://www.desmos.com/calculator/og836nvwmx
+float interp(float k, float percent) {
+	float ret = 0.0;
+	float epsilon = 0.0001;
+	if (fabs(k) < epsilon) {
+		// Actual k = 0 == 0 always. Just do linear interp.
+		ret = percent;
+	} else {
+		ret = (exp(k * percent) - 1.0) / (exp(k) - 1.0);
+	}
+	return ret;
+}
+
+shader DistanceToNode
+[[
+	string help  =
+		"<h3>Distance To Node</h3>"
+		"Outputs the current shaded fragment's distance to a selected node's center."
+		,
+	string label = "Distance To Node"
+]]
+(
+	string INode = "<Pick Object>"
+	[[
+		string widget = "max:actionButton",
+		string label = "Object",
+		string actionID = "selectObject('Pick some Object')",
+		int connectable = 0,
+	]],
+	vector XAxis = vector(1,0,0)  [[ int connectable = 0, string widget="null" ]],
+	vector YAxis = vector(0,1,0)  [[ int connectable = 0, string widget="null" ]],
+	vector ZAxis = vector(0,0,1)  [[ int connectable = 0, string widget="null" ]],
+	point Position = point (0,0,0)  [[ int connectable = 0, string widget="null" ]],
+
+	float Far = 10.0
+	[[
+		string label = "Far",
+		string help = "The maximum distance considered 'far'. Distance is normalized to this value."
+	]],
+
+	float Steepness = 0.0
+	[[
+		string label = "Steepness",
+		string help = "Positive is exponential, negative is logarithmic and '0' is linear interpolation.",
+		int connectable = 0,
+		// string packName = "Steepness",
+	]],
+
+	int Clamp = 0
+	[[
+		string widget = "checkBox",
+		string label = "Clamp",
+		string help = "Clamps the output distance to 1.0",
+		int connectable = 0,
+		// string packName = "Steepness",
+	]],
+
+	output float Distance = 0.0
+	[[
+		string label = "Distance",
+		string help = "A very simple distance to the center of an object."
+	]],
+
+	output float Clip = 0.0
+	[[
+		string label = "Clip",
+		string help = "The clip map outputs white if values exceed 1."
+	]]
+)
+{
+	point world_p = transform("world", P);
+	point world_obj_p = transform("world", Position);
+	vector to_obj_v = world_obj_p - world_p;
+	float dist_to_center = length(to_obj_v);
+
+	// Dumb dist, might be enough for some scenarios.
+	float o = Far == 0.0 ? dist_to_center : dist_to_center / Far;
+	o = o <= 0.0 ? 1.0 : 1.0 / o;
+	o = o >= 1.0 && Clamp ? 1.0 : o;
+	Clip = o >= 1.0 ? 1.0 : 0.0;
+	Distance = interp(Steepness, o);
+}
