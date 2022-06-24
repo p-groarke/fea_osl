@@ -45,7 +45,7 @@ shader Curvalicious
 		"Very fast curvature, edge, concave/convex approximation maps.<br>"
 		"Caveat, doesn't deal with hard edges."
 		,
-	string label = "Curvalicious"
+	string label = "Curvalicious [Viewport-Only]"
 ]]
 (
 	float CurvatureStrength = 0.2
