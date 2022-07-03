@@ -6,7 +6,7 @@
 - In 3dsMax, add a user plugin folder (Customize > Configure User and System Paths > 3rd Party Plug-Ins).
 - Add an `OSL` folder in that plugin folder.
 - Copy the `FeaOSL` folder to your new `OSL` directory.
-- You should see the shader in your material editor drop-down on next 3dsMax launch.
+- You should see the shaders in your material editor drop-down on next 3dsMax launch.
 
 ## Curvalicious
 Curvalicious is a fast (no raytracing) screen-space curvature shader. It outputs various maps related to curvature, edge detection and concave / convex faces.
@@ -25,7 +25,7 @@ Organic looking noise generator. Caustics, fleshy bubbles and other strange nois
 
 [More details](doc/organic_noise.md)
 
-## SimpleOcean
+## Simple Ocean
 SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacement. It isn't highly complex, but should do the job when you need a quick & dirty ocean. The shader outputs a main vector displacement map and multiple utility maps, like foam maps, above sea map, etc.
 
 <img src="doc/img/simpleocean_test1.png" width="49%" title="Test Render 1" alt="Shader Example">
