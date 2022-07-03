@@ -1,0 +1,432 @@
+// Organic Noise Shader - Caustics, bubbly, and weird noises.
+// Organic Noise by Philippe Groarke
+// Modified: 2022-07-02
+// Copyright 2022 Autodesk Inc, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+#define noise_t int
+#define STRENGTH_WIDTH 50
+
+
+#if 0
+// Returns a 2x2 matrix of noise values starting
+// at center coords x,y.
+matrix noise_2x2(noise_t noise_type, vector coord, float phase, vector xmove, vector ymove) {
+	matrix ret = 0;
+
+	// middlecenter
+	{
+		point p = coord;
+		ret[1][1] = custom_noise(noise_type, p, phase);
+	}
+	// middleright
+	{
+		point p = coord + xmove;
+		ret[1][2] = custom_noise(noise_type, p, phase);
+	}
+	// bottomcenter
+	{
+		point p = coord - ymove;
+		ret[2][1] = custom_noise(noise_type, p, phase);
+	}
+	// bottomright
+	{
+		point p = coord + xmove - ymove;
+		ret[2][2] = custom_noise(noise_type, p, phase);
+	}
+
+	return ret;
+}
+
+// Robert's cross convolution.
+// Very approximate gradient, but much faster.
+// x
+// | 1| 0|
+// | 0|-1|
+// y
+// | 0| 1|
+// |-1| 0|
+vector roberts_gradient(matrix m) {
+	float x = m[1][1] - m[2][2];
+	float y = m[1][2] - m[2][1];
+	return vector(x, y, 0);
+}
+#endif
+
+float custom_noise(noise_t noise_type, vector coord, float phase) {
+	// Minimize calls to noise.
+	float ret = noise("simplex", coord, phase);
+	if (noise_type == 0) {
+		// simplex
+		return (ret + 1) * 0.5;
+	}
+	else if (noise_type == 1) {
+		// fractal
+		return fabs(ret);
+	}
+}
+
+// Returns a 3x3 matrix of noise values around
+// center coords x,y.
+matrix noise_3x3(noise_t noise_type, vector coord, float phase, vector xmove, vector ymove) {
+	matrix ret = 0;
+	// vector coord = vector(c[0], c[1], 0);
+
+	// topleft
+	{
+		point p = coord - xmove + ymove;
+		ret[0][0] = custom_noise(noise_type, p, phase);
+	}
+	// topcenter
+	{
+		point p = coord + ymove;
+		ret[0][1] = custom_noise(noise_type, p, phase);
+	}
+	// topright
+	{
+		point p = coord + xmove + ymove;
+		ret[0][2] = custom_noise(noise_type, p, phase);
+	}
+	// middleleft
+	{
+		point p = coord - xmove;
+		ret[1][0] = custom_noise(noise_type, p, phase);
+	}
+	// middlecenter
+	{
+		point p = coord;
+		ret[1][1] = custom_noise(noise_type, p, phase);
+	}
+	// middleright
+	{
+		point p = coord + xmove;
+		ret[1][2] = custom_noise(noise_type, p, phase);
+	}
+	// bottomleft
+	{
+		point p = coord - xmove - ymove;
+		ret[2][0] = custom_noise(noise_type, p, phase);
+	}
+	// bottomcenter
+	{
+		point p = coord - ymove;
+		ret[2][1] = custom_noise(noise_type, p, phase);
+	}
+	// bottomright
+	{
+		point p = coord + xmove - ymove;
+		ret[2][2] = custom_noise(noise_type, p, phase);
+	}
+
+	return ret;
+}
+
+// Sobel operator convolution.
+// Pass in a 3x3 matrix of data to convolve.
+// x
+// |-1| 0| 1|
+// |-2| 0| 2|
+// |-1| 0| 1|
+// y
+// |-1|-2|-1|
+// | 0| 0| 0|
+// | 1| 2| 1|
+vector sobel_gradient(matrix m) {
+	float x = -m[0][0] + m[0][2] - 2 * m[1][0] + 2 * m[1][2]
+			- m[2][0] + m[2][2];
+
+	float y = -m[0][0] - 2 * m[0][1] - m[0][2]
+			+ m[2][0] + 2 * m[2][1] + m[2][2];
+
+	return vector(x, y, 0);
+}
+
+float flatten_top(float mag, float thresh) {
+	return mag < thresh ? thresh : mag;
+}
+
+float emphasize_top(float mag, float thresh) {
+	// Also flip the threshold for UI purposes.
+	return mag > 1 - thresh ? 1 - thresh : mag;
+}
+
+// Play with k,
+// https://www.desmos.com/calculator/og836nvwmx
+float interp(float k, float percent) {
+	float ret = 0.0;
+	float epsilon = 0.0001;
+	if (fabs(k) < epsilon) {
+		// Actual k = 0 == 0 always. Just do linear interp.
+		ret = percent;
+	} else {
+		ret = (exp(k * percent) - 1.0) / (exp(k) - 1.0);
+	}
+	return ret;
+}
+
+shader OrganicNoise
+[[
+	string help  =
+		"<h3>Organic Noise</h3>"
+		"Modulates and filters OSL noises to produce organic looking noises. Garden variety of caustic, fleshy and weird noises."
+		,
+	string label = "Organic Noise"
+]]
+(
+	int noise_type = 0
+	[[
+		string widget = "mapper",
+		string label = "Noise Type",
+		string options =
+			"Simplex:0"
+			"|Fractal:1",
+		string help = "The source noise type.",
+		int connectable = 0,
+	]],
+
+	int noise_mode = 0
+	[[
+		string widget = "mapper",
+		string label = "Noise Mode",
+		string options =
+			"None:0"
+			"|Camo:1"
+			"|Bubbles:2"
+			"|Camo-Bubbles:3",
+		string help = "A top level modulation applied to source noise.",
+		int connectable = 0,
+		string packName = "Noise Mode / Camo Seed",
+	]],
+
+	float camo_rotation = 0
+	[[
+		string units = "degrees",
+		string label = "Camo Seed",
+		string help = "An angle used to tweak 'camo', 0 to 360 degrees.",
+		float sensitivity = 1,
+		int digits = 0,
+		float min = 0,
+		float max = 360,
+		int connectable = 0,
+		string packName = "Noise Mode / Camo Seed",
+		int widgetWidth = STRENGTH_WIDTH,
+	]],
+
+	int over_sampling = 0
+	[[
+		string widget = "mapper",
+		string label = "Over-Sampling",
+		string options =
+			"None:0"
+			"|Rings:1"
+			"|Pinch:2",
+		string help = "The oversampling affects the noise coordinate used to acquire the noise. From a visual perspective, 'rings' creates circular patterns in darker areas. Pinch creates crease lines directed towards peaks.",
+		int connectable = 0,
+		string packName = "Over-Sampling / Strength",
+	]],
+
+	float oversampling_strength = 1
+	[[
+		string label = "Over-Sampling Strength",
+		string help = "Increase or decrease the over-sampling amount.",
+		string packName = "Over-Sampling / Strength",
+		int connectable = 0,
+		int widgetWidth = STRENGTH_WIDTH,
+	]],
+
+	int girth = 0
+	[[
+		string widget = "mapper",
+		string label = "Girth",
+		string options =
+			"None:0"
+			"|Bubbly:1"
+			"|Caustics:2",
+		string help = "Bubbly expands the noise, caustics squeezes it.",
+		int connectable = 0,
+		string packName = "Girth / Strength",
+	]],
+
+	float girth_strength = 1
+	[[
+		string label = "Girth Strength",
+		string help = "Increase or decrease the girth multiplier or divider.",
+		string packName = "Girth / Strength",
+		float min = 0.001,
+		int connectable = 0,
+		int widgetWidth = STRENGTH_WIDTH,
+	]],
+
+	int girth_threshold = 0
+	[[
+		string widget = "mapper",
+		string label = "Girth-Threshold",
+		string options =
+			"None:0"
+			"|Flatten Top:1"
+			"|Emphasize Top:2",
+		string help = "Limits the girth above/below a certain value. Does nothing if no girth.",
+		string packName = "Girth-Threshold / Strength",
+		int connectable = 0,
+	]],
+
+	float threshold_strength = 0.5
+	[[
+		string label = "Girth-Threshold Strength",
+		string help = "The girth threshold limit value.",
+		string packName = "Girth-Threshold / Strength",
+		int connectable = 0,
+		int widgetWidth = STRENGTH_WIDTH,
+		float min = 0,
+		float max = 0.999,
+	]],
+
+	float sampling_dist = 1
+	[[
+		string label = "Sampling Distance",
+		string help = "The 'search range' of the neighbours. Animate with scene time for interesting results.",
+	]],
+
+	float phase = 0
+	[[
+		string label = "Phase",
+		string help = "The 4th coordinate of the noise. Animate with scene time for interesting results.",
+	]],
+
+	float ramp_out = 0
+	[[
+		string label = "Ramp Output",
+		string help = "Interpolates final result. Positive is exponential, negative is logarithmic and '0' is linear interpolation (none).",
+		int connectable = 0,
+		string packName = "Ramp / Clamp Output",
+	]],
+
+	int clamp_out = 1
+	[[
+		string label = "Clamp Output",
+		string help = "Clamps the output value to [0..1].",
+		string widget = "checkBox",
+		int connectable = 0,
+		string packName = "Ramp / Clamp Output",
+	]],
+
+	float uv_scale = 5.0
+	[[
+		string label = "UV Scale",
+		string help = "Scale your UVWs up or down. For more betterer transformations, use UVW Transform node.",
+		int connectable = 0,
+	]],
+
+	point uvw = point(u, v, 0)
+	[[
+		string label = "UVW",
+		string help = "Transformed UVW coordinates. Animate 'w' with scene time for interesting results.",
+	]],
+
+	output float Out = 0,
+	output vector VectorDisplacement = 0
+)
+{
+	float epsilon = 0.00001;
+	point orig_coord = uvw * uv_scale;
+	point coord = orig_coord;
+	vector grad = 0;
+	float noise_v = 0;
+	float orig_noise = 0;
+
+	{
+		// Gets wonky at very low sampling distances.
+		float sd = fabs(sampling_dist) < 0.05 ? 0.05 : sampling_dist;
+
+		// Compute a 3x3 matrix of surrounding samples to the currently
+		// rendered point.
+		matrix sample_area = noise_3x3(noise_type, coord, phase, vector(sd, 0, 0), vector(0, sd, 0));
+		noise_v = sample_area[1][1];
+		orig_noise = noise_v;
+
+		// Compute gradient of noise.
+		grad = sobel_gradient(sample_area);
+	}
+
+	float mag = length(grad);
+	float dir = atan2(grad[1], grad[0]);
+	dir = (degrees(dir) + 180) / 360;
+	dir = fmod(dir + (camo_rotation / 360), 1);
+
+	if (noise_mode == 1) {
+		noise_v = dir;
+	} else if (noise_mode == 2) {
+		noise_v = mag;
+	} else if (noise_mode == 3) {
+		noise_v = mag * dir;
+	}
+
+	// Over-sampling.
+	if (over_sampling == 1) {
+		coord += grad * oversampling_strength;
+	} else if (over_sampling == 2) {
+		coord += normalize(grad) * oversampling_strength;
+	}
+
+	if (over_sampling != 0) {
+		float os_noise = custom_noise(noise_type, coord, phase);
+		if (noise_mode == 0) {
+			noise_v = os_noise;
+		} else {
+			// Keep noise mode modulation.
+			noise_v *= os_noise;
+		}
+	}
+
+	// The threshold acts invertly dependending on girth,
+	// flip it so UI makes sense.
+	if (girth_threshold == 1) {
+		// flatten
+		if (girth == 2) {
+			mag = flatten_top(mag, threshold_strength);
+		} else {
+			mag = emphasize_top(mag, threshold_strength);
+		}
+	} else if (girth_threshold == 2) {
+		// emphasize
+		if (girth == 2) {
+			mag = emphasize_top(mag, threshold_strength);
+		} else {
+			mag = flatten_top(mag, threshold_strength);
+		}
+	}
+
+	if (girth == 1) {
+		mag *= girth_strength;
+		noise_v *= mag;
+	} else if (girth == 2) {
+		// Caustics.
+		if (noise_mode == 2) {
+			// Can't use caustics + bubbles mode.
+			// Do something else interesting.
+			// noise_v = interp(5 * girth_strength, noise_v);
+			noise_v /= orig_noise * (1 / girth_strength);
+		} else {
+			mag *= 10;
+			mag *= (1.0 / girth_strength);
+			noise_v /= mag;
+		}
+	}
+
+	if (clamp_out) {
+		noise_v = clamp(noise_v, 0, 1);
+	}
+
+	if (ramp_out != 0) {
+		noise_v = interp(ramp_out, noise_v);
+	}
+
+	Out = noise_v;
+
+	{
+		vector coord_disp = coord - orig_coord;
+		// vector disp = vector(-coord_disp[0], -coord_disp[1], Out);
+		vector disp = vector(coord_disp[0], coord_disp[1], Out);
+		VectorDisplacement = disp;
+	}
+}

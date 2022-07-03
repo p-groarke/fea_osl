@@ -5,7 +5,7 @@
 - Download the [latest release](https://github.com/p-groarke/fea_osl/releases/latest) and unzip.
 - In 3dsMax, add a user plugin folder (Customize > Configure User and System Paths > 3rd Party Plug-Ins).
 - Add an `OSL` folder in that plugin folder.
-- Copy the `FeaOSL` folder to your `OSL` directory.
+- Copy the `FeaOSL` folder to your new `OSL` directory.
 - You should see the shader in your material editor drop-down on next 3dsMax launch.
 
 ## Curvalicious
@@ -17,6 +17,13 @@ Curvalicious is a fast (no raytracing) screen-space curvature shader. It outputs
 
 ## Distance To Node
 Utility helper that outputs distance to picked node's center.
+
+## Organic Noise
+Organic looking noise generator. Caustics, fleshy bubbles and other strange noises.
+
+<img src="doc/img/organic_noise.png" width="49%" title="Organic Noise" alt="Shader Example">
+
+[More details](doc/organic_noise.md)
 
 ## SimpleOcean
 SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacement. It isn't highly complex, but should do the job when you need a quick & dirty ocean. The shader outputs a main vector displacement map and multiple utility maps, like foam maps, above sea map, etc.
