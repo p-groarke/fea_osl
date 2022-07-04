@@ -234,6 +234,19 @@ shader OrganicNoise
 		int widgetWidth = STRENGTH_WIDTH,
 	]],
 
+	int overampling_blend = 0
+	[[
+		string widget = "mapper",
+		string label = "Over-Sampling Blend",
+		string options =
+			"None:0"
+			"|Add:1"
+			"|Substract:2",
+		string help = "By default, the oversampling value is set as-is. This option allows you to add or substract the over-sampled noise.",
+		int connectable = 0,
+		// string packName = "Over-Sampling / Strength",
+	]],
+
 	int girth = 0
 	[[
 		string widget = "mapper",
@@ -310,7 +323,7 @@ shader OrganicNoise
 		string packName = "Ramp / Clamp Output",
 	]],
 
-	float uv_scale = 5.0
+	float uv_scale = 1.0
 	[[
 		string label = "UV Scale",
 		string help = "Scale your UVWs up or down. For more betterer transformations, use UVW Transform node.",
@@ -370,11 +383,18 @@ shader OrganicNoise
 
 	if (over_sampling != 0) {
 		float os_noise = custom_noise(noise_type, coord, phase);
-		if (noise_mode == 0) {
-			noise_v = os_noise;
-		} else {
-			// Keep noise mode modulation.
-			noise_v *= os_noise;
+
+		if (overampling_blend == 0) {
+			if (noise_mode == 0) {
+				noise_v = os_noise;
+			} else {
+				// Keep noise mode modulation.
+				noise_v *= os_noise;
+			}
+		} else if (overampling_blend == 1) {
+			noise_v += os_noise;
+		} else if (overampling_blend == 2) {
+			noise_v -= os_noise;
 		}
 	}
 
