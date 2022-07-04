@@ -56,14 +56,21 @@ vector roberts_gradient(matrix m) {
 float custom_noise(noise_t noise_type, vector coord, float phase) {
 	// Minimize calls to noise.
 	float ret = noise("simplex", coord, phase);
+
 	if (noise_type == 0) {
 		// simplex
-		return (ret + 1) * 0.5;
-	}
-	else if (noise_type == 1) {
+		ret = (ret + 1) * 0.5;
+	} else if (noise_type == 1) {
 		// fractal
-		return fabs(ret);
+		ret = fabs(ret);
+	} else if (noise_type == 2) {
+		// fractal lines
+		ret = 1 - fabs(ret);
+		if (ret <= 0.99) {
+			ret = 0;
+		}
 	}
+	return ret;
 }
 
 // Returns a 3x3 matrix of noise values around
@@ -179,8 +186,9 @@ shader OrganicNoise
 		string label = "Noise Type",
 		string options =
 			"Simplex:0"
-			"|Fractal:1",
-		string help = "The source noise type.",
+			"|Fractal:1"
+			"|Fractal Lines:2",
+		string help = "The source noise type. 'Fractal lines' doesn't play well with most options, but is there because why not.",
 		int connectable = 0,
 	]],
 
@@ -234,17 +242,35 @@ shader OrganicNoise
 		int widgetWidth = STRENGTH_WIDTH,
 	]],
 
+	int oversampling_noise_type = -1
+	[[
+		string widget = "mapper",
+		string label = "Over-Sampling Noise Type",
+		string options =
+			"Same:-1"
+			"|Simplex:0"
+			"|Fractal:1"
+			"|Fractal Lines:2",
+		string help = "The type of noise to over-sample. By default, same type as 'Noise Type'.",
+		int connectable = 0,
+		string packName = "Over-Sampling Noise / Blend",
+	]],
+
 	int overampling_blend = 0
 	[[
 		string widget = "mapper",
 		string label = "Over-Sampling Blend",
 		string options =
-			"None:0"
-			"|Add:1"
-			"|Substract:2",
+			"Average:0"
+			"|Replace:1"
+			"|Add:2"
+			"|Substract:3"
+			"|Multiply:4"
+			"|Divide:5"
+			,
 		string help = "By default, the oversampling value is set as-is. This option allows you to add or substract the over-sampled noise.",
 		int connectable = 0,
-		// string packName = "Over-Sampling / Strength",
+		string packName = "Over-Sampling Noise / Blend",
 	]],
 
 	int girth = 0
@@ -376,25 +402,39 @@ shader OrganicNoise
 
 	// Over-sampling.
 	if (over_sampling == 1) {
+		// ring
 		coord += grad * oversampling_strength;
 	} else if (over_sampling == 2) {
+		// pinch
 		coord += normalize(grad) * oversampling_strength;
 	}
 
 	if (over_sampling != 0) {
-		float os_noise = custom_noise(noise_type, coord, phase);
+		int os_noise_type = noise_type;
+		if (oversampling_noise_type != -1) {
+			os_noise_type = oversampling_noise_type;
+		}
 
+		float os_noise = custom_noise(os_noise_type, coord, phase);
 		if (overampling_blend == 0) {
-			if (noise_mode == 0) {
-				noise_v = os_noise;
-			} else {
-				// Keep noise mode modulation.
-				noise_v *= os_noise;
-			}
-		} else if (overampling_blend == 1) {
+			// average
 			noise_v += os_noise;
+			noise_v /= 2;
+		} else if (overampling_blend == 1) {
+			// replace
+			noise_v = os_noise;
 		} else if (overampling_blend == 2) {
+			// add
+			noise_v += os_noise;
+		} else if (overampling_blend == 3) {
+			// substract
 			noise_v -= os_noise;
+		} else if (overampling_blend == 4) {
+			// multiply
+			noise_v *= os_noise;
+		} else if (overampling_blend == 5) {
+			// divide
+			noise_v /= os_noise;
 		}
 	}
 
@@ -424,7 +464,6 @@ shader OrganicNoise
 		if (noise_mode == 2) {
 			// Can't use caustics + bubbles mode.
 			// Do something else interesting.
-			// noise_v = interp(5 * girth_strength, noise_v);
 			noise_v /= orig_noise * (1 / girth_strength);
 		} else {
 			mag *= 10;
