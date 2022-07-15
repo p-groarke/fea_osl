@@ -6,7 +6,7 @@
 
 #define noise_t int
 #define STRENGTH_WIDTH 50
-
+#define SPACER(n) int __spacer##n = 0 [[string widget = "checkBox", int connectable = 0, int widgetWidth = 1]],
 
 #if 0
 // Returns a 2x2 matrix of noise values starting
@@ -53,6 +53,9 @@ vector roberts_gradient(matrix m) {
 }
 #endif
 
+// Simplex:0
+// Fractal:1
+// Fractal Lines:2
 float custom_noise(noise_t noise_type, vector coord, float phase) {
 	// Minimize calls to noise.
 	float ret = noise("simplex", coord, phase);
@@ -138,7 +141,7 @@ matrix noise_3x3(noise_t noise_type, vector coord, float phase, vector xmove, ve
 // |-1|-2|-1|
 // | 0| 0| 0|
 // | 1| 2| 1|
-vector sobel_gradient(matrix m) {
+vector fea_sobel_gradient(matrix m) {
 	float x = -m[0][0] + m[0][2] - 2 * m[1][0] + 2 * m[1][2]
 			- m[2][0] + m[2][2];
 
@@ -159,7 +162,7 @@ float emphasize_top(float mag, float thresh) {
 
 // Play with k,
 // https://www.desmos.com/calculator/og836nvwmx
-float interp(float k, float percent) {
+float fea_interp(float k, float percent) {
 	float ret = 0.0;
 	float epsilon = 0.0001;
 	if (fabs(k) < epsilon) {
@@ -169,6 +172,81 @@ float interp(float k, float percent) {
 		ret = (exp(k * percent) - 1.0) / (exp(k) - 1.0);
 	}
 	return ret;
+}
+
+// Blend 2 floats using typical color blend modes.
+// 'bot' is base layer, 'top' is top layer.
+
+// None (returns a):0
+// Replace:1
+// Average:2
+// Add:3
+// Substract:4
+// Multiply:5
+// Divide:6
+// Lighten:7
+// Darken:8
+// Overlay:9
+// Screen:10
+// Difference:11
+// Soft Light:12
+float fea_blend(int blend_type, float bot, float top) {
+	float ret = 0;
+	if (blend_type == 0) {
+		// none
+		ret = bot;
+	} else if (blend_type == 1) {
+		// replace
+		ret = top;
+	} else if (blend_type == 2) {
+		// average
+		ret = (bot + top) * 0.5;
+	} else if (blend_type == 3) {
+		// add
+		ret = bot + top;
+	} else if (blend_type == 4) {
+		// substract
+		ret = bot - top;
+	} else if (blend_type == 5) {
+		// multiply
+		ret = bot * top;
+	} else if (blend_type == 6) {
+		// divide
+		float t = top == 0.0 ? 0.0000001 : top;
+		ret = bot / t;
+	} else if (blend_type == 7) {
+		// lighten
+		ret = max(bot, top);
+	} else if (blend_type == 8) {
+		// darken
+		ret = min(bot, top);
+	} else if (blend_type == 9) {
+		// overlay
+		if (bot <= 0.5) {
+			ret = 2 * bot * top;
+		} else {
+			ret = 1 - 2 * (1 - bot) * (1 - top);
+		}
+	} else if (blend_type == 10) {
+		// screen
+		ret = 1 - (1 - bot) * (1 - top);
+	} else if (blend_type == 11) {
+		// difference
+		ret = fabs(bot - top);
+	} else if (blend_type == 12) {
+		// soft light
+		ret = (1 - 2 * top) * pow(bot, 2) + 2 * bot * top;
+	}
+
+	return ret;
+}
+
+vector fea_blend(int blend_type, vector bot, vector top) {
+	return vector(
+		fea_blend(blend_type, bot[0], top[0]),
+		fea_blend(blend_type, bot[1], top[1]),
+		fea_blend(blend_type, bot[2], top[2])
+	);
 }
 
 shader OrganicNoise
@@ -192,21 +270,31 @@ shader OrganicNoise
 		int connectable = 0,
 	]],
 
-	int noise_mode = 0
+	int camo_mode = 0
 	[[
 		string widget = "mapper",
-		string label = "Noise Mode",
+		string label = "Camo",
 		string options =
 			"None:0"
-			"|Camo:1"
-			"|Bubbles:2"
-			"|Camo-Bubbles:3",
-		string help = "A top level modulation applied to source noise.",
+			"|Overlay:9"
+			"|Replace:1"
+			"|Screen:10"
+			"|Average:2"
+			"|Lighten:7"
+			"|Darken:8"
+			"|Difference:11"
+			"|Soft Light:12"
+			"|Add:3"
+			"|Substract:4"
+			"|Multiply:5"
+			"|Divide:6"
+			,
+		string help = "Gives a 'camouflage' look to the noise.",
 		int connectable = 0,
-		string packName = "Noise Mode / Camo Seed",
+		string packName = "Camo / Seed",
 	]],
 
-	float camo_rotation = 0
+	float camo_seed = 0
 	[[
 		string units = "degrees",
 		string label = "Camo Seed",
@@ -216,9 +304,78 @@ shader OrganicNoise
 		float min = 0,
 		float max = 360,
 		int connectable = 0,
-		string packName = "Noise Mode / Camo Seed",
+		string packName = "Camo / Seed",
 		int widgetWidth = STRENGTH_WIDTH,
 	]],
+
+	int bubbles_mode = 0
+	[[
+		string widget = "mapper",
+		string label = "Bubbles",
+		string options =
+			"None:0"
+			"|Overlay:9"
+			"|Replace:1"
+			"|Screen:10"
+			"|Average:2"
+			"|Lighten:7"
+			"|Darken:8"
+			"|Difference:11"
+			"|Soft Light:12"
+			"|Add:3"
+			"|Substract:4"
+			"|Multiply:5"
+			"|Divide:6"
+			,
+		string help = "Gives a 'bubbly' thicker look to the noise.",
+		int connectable = 0,
+		string packName = "Bubbles / Strength",
+	]],
+
+	float bubbles_strength = 1.0
+	[[
+		string label = "Bubbles Strength",
+		string help = "Affects bubbles strength.",
+		float min = 0,
+		float max = 1,
+		int connectable = 0,
+		string packName = "Bubbles / Strength",
+		int widgetWidth = STRENGTH_WIDTH,
+	]],
+
+	int threshold_mode = 0
+	[[
+		string widget = "mapper",
+		string label = "Threshold",
+		string options =
+			"None:0"
+			"|Above:1"
+			"|Below:2",
+		string help = "Keeps noise above or below a certain threshold.",
+		int connectable = 0,
+		string packName = "Threshold / Strength",
+	]],
+
+	float threshold_strength = 0.5
+	[[
+		string label = "Threshold Strength",
+		string help = "The threshold value.",
+		float min = 0,
+		float max = 1,
+		int connectable = 0,
+		string packName = "Threshold / Strength",
+		int widgetWidth = STRENGTH_WIDTH,
+	]],
+
+	int blackwhite_thresh = 1
+	[[
+		string label = "Black and White Threshold",
+		string help = "If enabled, the noise that passes through threshold is pure white.",
+		string widget = "checkBox",
+		int connectable = 0,
+	]],
+
+	SPACER(1)
 
 	int over_sampling = 0
 	[[
@@ -245,7 +402,7 @@ shader OrganicNoise
 	int oversampling_noise_type = -1
 	[[
 		string widget = "mapper",
-		string label = "Over-Sampling Noise Type",
+		string label = "Over-Sampling Noise",
 		string options =
 			"Same:-1"
 			"|Simplex:0"
@@ -256,24 +413,32 @@ shader OrganicNoise
 		string packName = "Over-Sampling Noise / Blend",
 	]],
 
-	int overampling_blend = 0
+	int overampling_blend = 8
 	[[
 		string widget = "mapper",
 		string label = "Over-Sampling Blend",
 		string options =
-			"Average:0"
+			"Overlay:9"
 			"|Replace:1"
-			"|Add:2"
-			"|Substract:3"
-			"|Multiply:4"
-			"|Divide:5"
+			"|Screen:10"
+			"|Average:2"
+			"|Lighten:7"
+			"|Darken:8"
+			"|Difference:11"
+			"|Soft Light:12"
+			"|Add:3"
+			"|Substract:4"
+			"|Multiply:5"
+			"|Divide:6"
 			,
-		string help = "By default, the oversampling value is set as-is. This option allows you to add or substract the over-sampled noise.",
+		string help = "How to blend the over-sampled noise.",
 		int connectable = 0,
 		string packName = "Over-Sampling Noise / Blend",
 	]],
 
-	int girth = 0
+	SPACER(2)
+
+	int girth_mode = 0
 	[[
 		string widget = "mapper",
 		string label = "Girth",
@@ -281,7 +446,7 @@ shader OrganicNoise
 			"None:0"
 			"|Bubbly:1"
 			"|Caustics:2",
-		string help = "Bubbly expands the noise, caustics squeezes it.",
+		string help = "Bubbly expands the noise, caustics squeezes it.\nNote : Caustics don't play well with Bubbles noise mode.",
 		int connectable = 0,
 		string packName = "Girth / Strength",
 	]],
@@ -309,7 +474,7 @@ shader OrganicNoise
 		int connectable = 0,
 	]],
 
-	float threshold_strength = 0.5
+	float girth_threshold_strength = 0.5
 	[[
 		string label = "Girth-Threshold Strength",
 		string help = "The girth threshold limit value.",
@@ -319,6 +484,8 @@ shader OrganicNoise
 		float min = 0,
 		float max = 0.999,
 	]],
+
+	SPACER(3)
 
 	float sampling_dist = 1
 	[[
@@ -348,6 +515,8 @@ shader OrganicNoise
 		int connectable = 0,
 		string packName = "Ramp / Clamp Output",
 	]],
+
+	SPACER(4)
 
 	float uv_scale = 1.0
 	[[
@@ -384,26 +553,45 @@ shader OrganicNoise
 		orig_noise = noise_v;
 
 		// Compute gradient of noise.
-		grad = sobel_gradient(sample_area);
+		grad = fea_sobel_gradient(sample_area);
 	}
 
 	float mag = length(grad);
-	float dir = atan2(grad[1], grad[0]);
-	dir = (degrees(dir) + 180) / 360;
-	dir = fmod(dir + (camo_rotation / 360), 1);
+	float rad_dir = atan2(grad[1], grad[0]);
+	float dir = (degrees(rad_dir) + 180) / 360;
+	dir = fmod(dir + (camo_seed / 360), 1);
 
-	if (noise_mode == 1) {
-		noise_v = dir;
-	} else if (noise_mode == 2) {
-		noise_v = mag;
-	} else if (noise_mode == 3) {
-		noise_v = mag * dir;
-	}
+	// Camo
+	noise_v = fea_blend(camo_mode, noise_v, dir);
+
+	// Bubbles
+	noise_v = fea_blend(bubbles_mode, noise_v, mag * bubbles_strength);
+
+	// // Threshold
+	// if (threshold_mode == 1) {
+	// 	// above
+	// 	if (noise_v < threshold_strength) {
+	// 		noise_v = 0.0;
+	// 	} else if (blackwhite_thresh) {
+	// 		noise_v = 1.0;
+	// 	}
+	// } else if (threshold_mode == 2) {
+	// 	// below
+	// 	if (noise_v > threshold_strength) {
+	// 		noise_v = 0.0;
+	// 	} else if (blackwhite_thresh) {
+	// 		noise_v = 1.0;
+	// 	}
+	// }
 
 	// Over-sampling.
 	if (over_sampling == 1) {
 		// ring
-		coord += grad * oversampling_strength;
+		// coord += grad * oversampling_strength;
+
+		// coord += mag * oversampling_strength;
+		// coord = dir;
+		coord = normalize(grad);
 	} else if (over_sampling == 2) {
 		// pinch
 		coord += normalize(grad) * oversampling_strength;
@@ -416,60 +604,53 @@ shader OrganicNoise
 		}
 
 		float os_noise = custom_noise(os_noise_type, coord, phase);
-		if (overampling_blend == 0) {
-			// average
-			noise_v += os_noise;
-			noise_v /= 2;
-		} else if (overampling_blend == 1) {
-			// replace
-			noise_v = os_noise;
-		} else if (overampling_blend == 2) {
-			// add
-			noise_v += os_noise;
-		} else if (overampling_blend == 3) {
-			// substract
-			noise_v -= os_noise;
-		} else if (overampling_blend == 4) {
-			// multiply
-			noise_v *= os_noise;
-		} else if (overampling_blend == 5) {
-			// divide
-			noise_v /= os_noise;
+		noise_v = fea_blend(overampling_blend, noise_v, os_noise);
+	}
+
+	// Threshold
+	if (threshold_mode == 1) {
+		// above
+		if (noise_v < threshold_strength) {
+			noise_v = 0.0;
+		} else if (blackwhite_thresh) {
+			noise_v = 1.0;
+		}
+	} else if (threshold_mode == 2) {
+		// below
+		if (noise_v > threshold_strength) {
+			noise_v = 0.0;
+		} else if (blackwhite_thresh) {
+			noise_v = 1.0;
 		}
 	}
+
 
 	// The threshold acts invertly dependending on girth,
 	// flip it so UI makes sense.
 	if (girth_threshold == 1) {
 		// flatten
-		if (girth == 2) {
-			mag = flatten_top(mag, threshold_strength);
+		if (girth_mode == 2) {
+			mag = flatten_top(mag, girth_threshold_strength);
 		} else {
-			mag = emphasize_top(mag, threshold_strength);
+			mag = emphasize_top(mag, girth_threshold_strength);
 		}
 	} else if (girth_threshold == 2) {
 		// emphasize
-		if (girth == 2) {
-			mag = emphasize_top(mag, threshold_strength);
+		if (girth_mode == 2) {
+			mag = emphasize_top(mag, girth_threshold_strength);
 		} else {
-			mag = flatten_top(mag, threshold_strength);
+			mag = flatten_top(mag, girth_threshold_strength);
 		}
 	}
 
-	if (girth == 1) {
+	if (girth_mode == 1) {
 		mag *= girth_strength;
 		noise_v *= mag;
-	} else if (girth == 2) {
+	} else if (girth_mode == 2) {
 		// Caustics.
-		if (noise_mode == 2) {
-			// Can't use caustics + bubbles mode.
-			// Do something else interesting.
-			noise_v /= orig_noise * (1 / girth_strength);
-		} else {
-			mag *= 10;
-			mag *= (1.0 / girth_strength);
-			noise_v /= mag;
-		}
+		mag *= 10;
+		mag *= (1.0 / girth_strength);
+		noise_v /= mag;
 	}
 
 	if (clamp_out) {
@@ -477,7 +658,7 @@ shader OrganicNoise
 	}
 
 	if (ramp_out != 0) {
-		noise_v = interp(ramp_out, noise_v);
+		noise_v = fea_interp(ramp_out, noise_v);
 	}
 
 	Out = noise_v;
