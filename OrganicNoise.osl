@@ -5,8 +5,8 @@
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
 #define noise_t int
-#define STRENGTH_WIDTH 50
-#define SPACER(n) int __spacer##n = 0 [[string widget = "checkBox", int connectable = 0, int widgetWidth = 1]],
+#define FEA_LPACK_W 50
+#define FEA_SPACER(n) int __spacer##n = 0 [[string widget = "checkBox", int connectable = 0, int widgetWidth = 1]],
 
 #if 0
 // Returns a 2x2 matrix of noise values starting
@@ -53,9 +53,45 @@ vector roberts_gradient(matrix m) {
 }
 #endif
 
+// Converts a precentage to radian.
+// Expects percent 0.0 to 1.0.
+float fea_per_to_rad(float percent) {
+	return percent * M_2PI;
+}
+
+// Converts a radian to percentage.
+// Returns percent 0.0 to 1.0.
+float fea_rad_to_per(float rad) {
+	return rad * 0.15915494309189498;
+}
+
+// Given a radian angle, returns a 2d vector pointing
+// in that direction.
+vector fea_angle_to_vec(float rad) {
+	return vector(cos(rad), sin(rad), 0);
+}
+
+// Play with k,
+// https://www.desmos.com/calculator/og836nvwmx
+// k > 0, exponential
+// k == 0, linear
+// k < 0, logarithmic
+float fea_interp(float k, float percent) {
+	float ret = 0.0;
+	float epsilon = 0.0001;
+	if (fabs(k) < epsilon) {
+		// Actual k = 0 == 0 always. Just do linear interp.
+		ret = percent;
+	} else {
+		ret = (exp(k * percent) - 1.0) / (exp(k) - 1.0);
+	}
+	return ret;
+}
+
 // Simplex:0
 // Fractal:1
 // Fractal Lines:2
+// Fractal Inverse:3
 float custom_noise(noise_t noise_type, vector coord, float phase) {
 	// Minimize calls to noise.
 	float ret = noise("simplex", coord, phase);
@@ -72,7 +108,11 @@ float custom_noise(noise_t noise_type, vector coord, float phase) {
 		if (ret <= 0.99) {
 			ret = 0;
 		}
+	} else if (noise_type == 3) {
+		// fractal inverse
+		ret = 1 - fabs(ret);
 	}
+
 	return ret;
 }
 
@@ -151,6 +191,32 @@ vector fea_sobel_gradient(matrix m) {
 	return vector(x, y, 0);
 }
 
+// Sharpen convolution.
+// Pass in a 3x3 matrix of data to convolve.
+float fea_sharpen(matrix m) {
+	return -m[0][1] - m[1][0] + 5 * m[1][1] - m[1][2] - m[2][1];
+}
+
+// Blur convolution.
+// Pass in a 3x3 matrix of data to convolve.
+float fea_blur(matrix m) {
+	return 0.0625 * (m[0][0] + m[0][2] + m[2][0] + m[2][2])
+			+ 0.125 * (m[0][1] + m[1][0] + m[1][2] + m[2][1])
+			+ 0.25 * m[1][1];
+}
+
+// Emboss convolution.
+// Pass in a 3x3 matrix of data to convolve.
+float fea_emboss(matrix m) {
+	return -2 * m[0][0] - m[0][1] - m[1][0] + m[1][1] + m[1][2] + m[2][1] + 2 * m[2][2];
+}
+
+// Outline convolution.
+// Pass in a 3x3 matrix of data to convolve.
+float fea_outline(matrix m) {
+	return -m[0][0] - m[0][1] - m[0][2] - m[1][0] + 8 * m[1][1] - m[1][2] - m[2][0] - m[2][1] - m[2][2];
+}
+
 float flatten_top(float mag, float thresh) {
 	return mag < thresh ? thresh : mag;
 }
@@ -158,20 +224,6 @@ float flatten_top(float mag, float thresh) {
 float emphasize_top(float mag, float thresh) {
 	// Also flip the threshold for UI purposes.
 	return mag > 1 - thresh ? 1 - thresh : mag;
-}
-
-// Play with k,
-// https://www.desmos.com/calculator/og836nvwmx
-float fea_interp(float k, float percent) {
-	float ret = 0.0;
-	float epsilon = 0.0001;
-	if (fabs(k) < epsilon) {
-		// Actual k = 0 == 0 always. Just do linear interp.
-		ret = percent;
-	} else {
-		ret = (exp(k * percent) - 1.0) / (exp(k) - 1.0);
-	}
-	return ret;
 }
 
 // Blend 2 floats using typical color blend modes.
@@ -264,9 +316,28 @@ shader OrganicNoise
 		string label = "Noise Type",
 		string options =
 			"Simplex:0"
-			"|Fractal:1"
-			"|Fractal Lines:2",
+			"|Fractal Light:3"
+			"|Fractal Dark:1"
+			"|Fractal Lines:2"
+			,
 		string help = "The source noise type. 'Fractal lines' doesn't play well with most options, but is there because why not.",
+		int connectable = 0,
+	]],
+
+	int noise_effect = 0
+	[[
+		string widget = "mapper",
+		string label = "Noise Effect",
+		string options =
+			"None:0"
+			"|Exponentize:1"
+			"|Logarithmize:2"
+			"|Sharpen:3"
+			"|Blur:4"
+			"|Emboss:5"
+			"|Outline:6"
+			,
+		string help = "Applies an extra effect on your base noise.",
 		int connectable = 0,
 	]],
 
@@ -291,21 +362,18 @@ shader OrganicNoise
 			,
 		string help = "Gives a 'camouflage' look to the noise.",
 		int connectable = 0,
-		string packName = "Camo / Seed",
+		string packName = "Camo / Angle",
 	]],
 
-	float camo_seed = 0
+	float camo_angle = 0
 	[[
-		string units = "degrees",
 		string label = "Camo Seed",
 		string help = "An angle used to tweak 'camo', 0 to 360 degrees.",
-		float sensitivity = 1,
-		int digits = 0,
 		float min = 0,
-		float max = 360,
+		float max = 1,
 		int connectable = 0,
-		string packName = "Camo / Seed",
-		int widgetWidth = STRENGTH_WIDTH,
+		string packName = "Camo / Angle",
+		int widgetWidth = FEA_LPACK_W,
 	]],
 
 	int bubbles_mode = 0
@@ -340,7 +408,42 @@ shader OrganicNoise
 		float max = 1,
 		int connectable = 0,
 		string packName = "Bubbles / Strength",
-		int widgetWidth = STRENGTH_WIDTH,
+		int widgetWidth = FEA_LPACK_W,
+	]],
+
+	int splats_mode = 0
+	[[
+		string widget = "mapper",
+		string label = "Splats",
+		string options =
+			"None:0"
+			"|Overlay:9"
+			"|Replace:1"
+			"|Screen:10"
+			"|Average:2"
+			"|Lighten:7"
+			"|Darken:8"
+			"|Difference:11"
+			"|Soft Light:12"
+			"|Add:3"
+			"|Substract:4"
+			"|Multiply:5"
+			"|Divide:6"
+			,
+		string help = "Filters the noise according to a direction, giving 'splats' as a result.",
+		int connectable = 0,
+		string packName = "Splats / Angle",
+	]],
+
+	float splats_angle = 0.0
+	[[
+		string label = "Splats Direction",
+		string help = "Affects orientation of splats.",
+		float min = 0,
+		float max = 1,
+		int connectable = 0,
+		string packName = "Splats / Angle",
+		int widgetWidth = FEA_LPACK_W,
 	]],
 
 	int threshold_mode = 0
@@ -364,7 +467,7 @@ shader OrganicNoise
 		float max = 1,
 		int connectable = 0,
 		string packName = "Threshold / Strength",
-		int widgetWidth = STRENGTH_WIDTH,
+		int widgetWidth = FEA_LPACK_W
 	]],
 
 	int blackwhite_thresh = 1
@@ -375,7 +478,7 @@ shader OrganicNoise
 		int connectable = 0,
 	]],
 
-	SPACER(1)
+	FEA_SPACER(1)
 
 	int over_sampling = 0
 	[[
@@ -396,7 +499,7 @@ shader OrganicNoise
 		string help = "Increase or decrease the over-sampling amount.",
 		string packName = "Over-Sampling / Strength",
 		int connectable = 0,
-		int widgetWidth = STRENGTH_WIDTH,
+		int widgetWidth = FEA_LPACK_W,
 	]],
 
 	int oversampling_noise_type = -1
@@ -436,7 +539,7 @@ shader OrganicNoise
 		string packName = "Over-Sampling Noise / Blend",
 	]],
 
-	SPACER(2)
+	FEA_SPACER(2)
 
 	int girth_mode = 0
 	[[
@@ -458,7 +561,7 @@ shader OrganicNoise
 		string packName = "Girth / Strength",
 		float min = 0.001,
 		int connectable = 0,
-		int widgetWidth = STRENGTH_WIDTH,
+		int widgetWidth = FEA_LPACK_W,
 	]],
 
 	int girth_threshold = 0
@@ -480,17 +583,18 @@ shader OrganicNoise
 		string help = "The girth threshold limit value.",
 		string packName = "Girth-Threshold / Strength",
 		int connectable = 0,
-		int widgetWidth = STRENGTH_WIDTH,
+		int widgetWidth = FEA_LPACK_W,
 		float min = 0,
 		float max = 0.999,
 	]],
 
-	SPACER(3)
+	FEA_SPACER(3)
 
 	float sampling_dist = 1
 	[[
 		string label = "Sampling Distance",
-		string help = "The 'search range' of the neighbours. Animate with scene time for interesting results.",
+		string help = "The 'search range' of the neighbours.",
+		int connectable = 0,
 	]],
 
 	float phase = 0
@@ -516,7 +620,36 @@ shader OrganicNoise
 		string packName = "Ramp / Clamp Output",
 	]],
 
-	SPACER(4)
+	FEA_SPACER(4)
+
+	int color_mode = 0
+	[[
+		string widget = "mapper",
+		string label = "Color Mode",
+		string options =
+			"Hue:0"
+			"|Heat Map:1"
+			"|Bright Burn:2"
+			"|Complements:3"
+			"|Analogous:4"
+			,
+		string help = "The output 'Color' algorithm to use.",
+		int connectable = 0,
+		string packName = "Color Mode / Tweak",
+	]],
+
+	float color_tweak = 0
+	[[
+		string label = "Color Tweak",
+		string help = "Changes settings according to selected color mode.",
+		float min = 0,
+		float max = 1,
+		int connectable = 0,
+		string packName = "Color Mode / Tweak",
+		int widgetWidth = FEA_LPACK_W,
+	]],
+
+	FEA_SPACER(5)
 
 	float uv_scale = 1.0
 	[[
@@ -532,15 +665,16 @@ shader OrganicNoise
 	]],
 
 	output float Out = 0,
-	output vector VectorDisplacement = 0
+	output color Color = 0
+	// output vector VectorDisplacement = 0
 )
 {
 	float epsilon = 0.00001;
 	point orig_coord = uvw * uv_scale;
 	point coord = orig_coord;
 	vector grad = 0;
+	matrix sample_area;
 	float noise_v = 0;
-	float orig_noise = 0;
 
 	{
 		// Gets wonky at very low sampling distances.
@@ -548,63 +682,105 @@ shader OrganicNoise
 
 		// Compute a 3x3 matrix of surrounding samples to the currently
 		// rendered point.
-		matrix sample_area = noise_3x3(noise_type, coord, phase, vector(sd, 0, 0), vector(0, sd, 0));
+		sample_area = noise_3x3(noise_type, coord, phase, vector(sd, 0, 0), vector(0, sd, 0));
 		noise_v = sample_area[1][1];
-		orig_noise = noise_v;
 
 		// Compute gradient of noise.
 		grad = fea_sobel_gradient(sample_area);
 	}
 
+	// line experiment, Simplex lines.
+	{
+		// vector new_coord = coord + (noise_v * 2 - 1);
+		vector new_coord = coord + grad;
+		noise_v = abs(sin((new_coord[0] + new_coord[1]) * 10.0));
+		sample_area[1][1] = noise_v;
+	}
+
+	{
+		// noise_v = abs(sample_area[0][1] - sample_area[1][1]) + abs(sample_area[1][0] - sample_area[1][1]);
+		// if (abs(sample_area[0][1] - sample_area[1][1]) < 0.01) {
+		// 	noise_v *= 2;
+		// 	// int x = floor(coord[0]);
+		// 	// if ((x % 2) == 0) {
+		// 	// 	noise_v = 0;
+		// 	// }
+		// }
+
+		// if (abs(sample_area[1][0] - sample_area[1][1]) < 0.01) {
+		// 	noise_v *= 2;
+		// }
+
+		// if (abs(sample_area[0][0] - sample_area[1][1]) < 0.01) {
+		// 	noise_v *= 2;
+		// }
+
+		// if (abs(sample_area[2][0] - sample_area[1][1]) < 0.01) {
+		// 	noise_v *= 2;
+		// }
+
+		// vector noise_dir = fea_angle_to_vec(fea_per_to_rad(noise_v));
+		// matrix area_dirs;
+		// float tot = 0;
+		// for (int i = 0; i < 3; ++i) {
+		// 	for (int j = 0; j < 3; ++j) {
+		// 		tot += sample_area[i][j];
+		// 	}
+		// }
+		// tot /= 9;
+		// noise_v = tot;
+		// if (abs(dot(noise_dir, vector(1,0,0))) < 0.95) {
+		// 	noise_v = 0;
+		// }
+	}
+
+
+	if (noise_effect == 1) {
+		// Exponent
+		noise_v = fea_interp(10, noise_v);
+	} else if (noise_effect == 2) {
+		// Logarithm
+		noise_v = fea_interp(-10, noise_v);
+	} else if (noise_effect == 3) {
+		// sharpen
+		noise_v = fea_sharpen(sample_area);
+	} else if (noise_effect == 4) {
+		// blur
+		noise_v = fea_blur(sample_area);
+	} else if (noise_effect == 5) {
+		// emboss
+		noise_v = fea_emboss(sample_area);
+	} else if (noise_effect == 6) {
+		// outline
+		noise_v = fea_outline(sample_area);
+	}
+
+
+
 	float mag = length(grad);
-	float rad_dir = atan2(grad[1], grad[0]);
-	float dir = (degrees(rad_dir) + 180) / 360;
-	dir = fmod(dir + (camo_seed / 360), 1);
+	float dir = atan2(grad[1], grad[0]);
 
 	// Camo
-	noise_v = fea_blend(camo_mode, noise_v, dir);
+	{
+		float camo_dir = fea_rad_to_per(dir + M_PI) + camo_angle;
+		camo_dir = fmod(camo_dir, 1);
+		noise_v = fea_blend(camo_mode, noise_v, camo_dir);
+	}
 
 	// Bubbles
 	noise_v = fea_blend(bubbles_mode, noise_v, mag * bubbles_strength);
 
-	// // Threshold
-	// if (threshold_mode == 1) {
-	// 	// above
-	// 	if (noise_v < threshold_strength) {
-	// 		noise_v = 0.0;
-	// 	} else if (blackwhite_thresh) {
-	// 		noise_v = 1.0;
-	// 	}
-	// } else if (threshold_mode == 2) {
-	// 	// below
-	// 	if (noise_v > threshold_strength) {
-	// 		noise_v = 0.0;
-	// 	} else if (blackwhite_thresh) {
-	// 		noise_v = 1.0;
-	// 	}
-	// }
-
-	// Over-sampling.
-	if (over_sampling == 1) {
-		// ring
-		// coord += grad * oversampling_strength;
-
-		// coord += mag * oversampling_strength;
-		// coord = dir;
-		coord = normalize(grad);
-	} else if (over_sampling == 2) {
-		// pinch
-		coord += normalize(grad) * oversampling_strength;
-	}
-
-	if (over_sampling != 0) {
-		int os_noise_type = noise_type;
-		if (oversampling_noise_type != -1) {
-			os_noise_type = oversampling_noise_type;
-		}
-
-		float os_noise = custom_noise(os_noise_type, coord, phase);
-		noise_v = fea_blend(overampling_blend, noise_v, os_noise);
+	// Squeeze?
+	{
+		float s = fea_per_to_rad(splats_angle);
+		vector axis = fea_angle_to_vec(s);
+		float val = abs(dot(normalize(grad), axis));
+		// float val = dot(normalize(grad), axis);
+		// if (val < 0.95) {
+		// 	noise_v = 0;
+		// }
+		// val = fea_interp(10, val);
+		noise_v = fea_blend(splats_mode, noise_v, val);
 	}
 
 	// Threshold
@@ -624,6 +800,28 @@ shader OrganicNoise
 		}
 	}
 
+	// Over-sampling.
+	if (over_sampling == 1) {
+		// ring
+		coord += grad * oversampling_strength;
+
+		// coord += mag * oversampling_strength;
+		// coord = dir;
+		// coord = normalize(grad);
+	} else if (over_sampling == 2) {
+		// pinch
+		coord += normalize(grad) * oversampling_strength;
+	}
+
+	if (over_sampling != 0) {
+		int os_noise_type = noise_type;
+		if (oversampling_noise_type != -1) {
+			os_noise_type = oversampling_noise_type;
+		}
+
+		float os_noise = custom_noise(os_noise_type, coord, phase);
+		noise_v = fea_blend(overampling_blend, noise_v, os_noise);
+	}
 
 	// The threshold acts invertly dependending on girth,
 	// flip it so UI makes sense.
@@ -653,20 +851,56 @@ shader OrganicNoise
 		noise_v /= mag;
 	}
 
-	if (clamp_out) {
-		noise_v = clamp(noise_v, 0, 1);
-	}
-
 	if (ramp_out != 0) {
 		noise_v = fea_interp(ramp_out, noise_v);
 	}
 
+	if (clamp_out) {
+		noise_v = clamp(noise_v, 0, 1);
+	}
+
 	Out = noise_v;
 
-	{
-		vector coord_disp = coord - orig_coord;
-		// vector disp = vector(-coord_disp[0], -coord_disp[1], Out);
-		vector disp = vector(coord_disp[0], coord_disp[1], Out);
-		VectorDisplacement = disp;
+	float clamped_noise = noise_v;
+	if (!clamp_out) {
+		clamped_noise = clamp(noise_v, 0, 1);
 	}
+
+	color out_col;
+	if (color_mode == 0) {
+		// hsv
+		float col = fmod(noise_v + color_tweak, 1);
+		out_col = color("hsv", col, 1, 1);
+	} else if (color_mode == 1) {
+		// heat map
+		float g = 0.618033988749895;
+		float col = fmod((noise_v * 0.5) + g + color_tweak, 1);
+		out_col = color("hsv", col, 1, 1);
+	} else if (color_mode == 2) {
+		// bright burn
+		float g = 0.618033988749895;
+		float col = fmod((noise_v * 0.569) + g + color_tweak, 1);
+		out_col = color("hsv", col, 1 - clamped_noise, 1);
+	} else if (color_mode == 3) {
+		// complements
+		color start_col = color("hsv", color_tweak, 1, 1);
+		color end_col = color("hsv", 0.5 + color_tweak, 1, 1);
+
+		// out_col = mix(start_col, end_col, smoothstep(0.2, 0.8, clamped_noise));
+		out_col = mix(start_col, end_col, clamped_noise);
+	} else if (color_mode == 4) {
+		// analogous
+		float col = fmod(clamped_noise * 0.166666667 + color_tweak, 1) ;
+		out_col = color("hsv", col, 1, 1);
+	}
+
+	Color = out_col;
+
+	// Removed for time being. Needs some r&r.
+	// {
+	// 	vector coord_disp = coord - orig_coord;
+	// 	// vector disp = vector(-coord_disp[0], -coord_disp[1], Out);
+	// 	vector disp = vector(coord_disp[0], coord_disp[1], Out);
+	// 	VectorDisplacement = disp;
+	// }
 }
