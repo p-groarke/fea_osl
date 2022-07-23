@@ -1,97 +1,23 @@
 // Organic Noise Shader - Caustics, bubbly, and weird noises.
 // Organic Noise by Philippe Groarke
-// Modified: 2022-07-02
-// Copyright 2022 Autodesk Inc, All rights reserved. This file is licensed under Apache 2.0 license
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
+// TODO : Punch in by build script.
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea.osl"
+
 #define noise_t int
-#define FEA_LPACK_W 50
-#define FEA_SPACER(n) int __spacer##n = 0 [[string widget = "checkBox", int connectable = 0, int widgetWidth = 1]],
-
-#if 0
-// Returns a 2x2 matrix of noise values starting
-// at center coords x,y.
-matrix noise_2x2(noise_t noise_type, vector coord, float phase, vector xmove, vector ymove) {
-	matrix ret = 0;
-
-	// middlecenter
-	{
-		point p = coord;
-		ret[1][1] = custom_noise(noise_type, p, phase);
-	}
-	// middleright
-	{
-		point p = coord + xmove;
-		ret[1][2] = custom_noise(noise_type, p, phase);
-	}
-	// bottomcenter
-	{
-		point p = coord - ymove;
-		ret[2][1] = custom_noise(noise_type, p, phase);
-	}
-	// bottomright
-	{
-		point p = coord + xmove - ymove;
-		ret[2][2] = custom_noise(noise_type, p, phase);
-	}
-
-	return ret;
-}
-
-// Robert's cross convolution.
-// Very approximate gradient, but much faster.
-// x
-// | 1| 0|
-// | 0|-1|
-// y
-// | 0| 1|
-// |-1| 0|
-vector roberts_gradient(matrix m) {
-	float x = m[1][1] - m[2][2];
-	float y = m[1][2] - m[2][1];
-	return vector(x, y, 0);
-}
-#endif
-
-// Converts a precentage to radian.
-// Expects percent 0.0 to 1.0.
-float fea_per_to_rad(float percent) {
-	return percent * M_2PI;
-}
-
-// Converts a radian to percentage.
-// Returns percent 0.0 to 1.0.
-float fea_rad_to_per(float rad) {
-	return rad * 0.15915494309189498;
-}
-
-// Given a radian angle, returns a 2d vector pointing
-// in that direction.
-vector fea_angle_to_vec(float rad) {
-	return vector(cos(rad), sin(rad), 0);
-}
-
-// Play with k,
-// https://www.desmos.com/calculator/og836nvwmx
-// k > 0, exponential
-// k == 0, linear
-// k < 0, logarithmic
-float fea_interp(float k, float percent) {
-	float ret = 0.0;
-	float epsilon = 0.0001;
-	if (fabs(k) < epsilon) {
-		// Actual k = 0 == 0 always. Just do linear interp.
-		ret = percent;
-	} else {
-		ret = (exp(k * percent) - 1.0) / (exp(k) - 1.0);
-	}
-	return ret;
-}
 
 // Simplex:0
 // Fractal:1
 // Fractal Lines:2
 // Fractal Inverse:3
+#define custom_noise_opts \
+		"Simplex:0" \
+		"|Fractal Light:3" \
+		"|Fractal Dark:1" \
+		"|Fractal Lines:2"
+
 float custom_noise(noise_t noise_type, vector coord, float phase) {
 	// Minimize calls to noise.
 	float ret = noise("simplex", coord, phase);
@@ -171,52 +97,6 @@ matrix noise_3x3(noise_t noise_type, vector coord, float phase, vector xmove, ve
 	return ret;
 }
 
-// Sobel operator convolution.
-// Pass in a 3x3 matrix of data to convolve.
-// x
-// |-1| 0| 1|
-// |-2| 0| 2|
-// |-1| 0| 1|
-// y
-// |-1|-2|-1|
-// | 0| 0| 0|
-// | 1| 2| 1|
-vector fea_sobel_gradient(matrix m) {
-	float x = -m[0][0] + m[0][2] - 2 * m[1][0] + 2 * m[1][2]
-			- m[2][0] + m[2][2];
-
-	float y = -m[0][0] - 2 * m[0][1] - m[0][2]
-			+ m[2][0] + 2 * m[2][1] + m[2][2];
-
-	return vector(x, y, 0);
-}
-
-// Sharpen convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_sharpen(matrix m) {
-	return -m[0][1] - m[1][0] + 5 * m[1][1] - m[1][2] - m[2][1];
-}
-
-// Blur convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_blur(matrix m) {
-	return 0.0625 * (m[0][0] + m[0][2] + m[2][0] + m[2][2])
-			+ 0.125 * (m[0][1] + m[1][0] + m[1][2] + m[2][1])
-			+ 0.25 * m[1][1];
-}
-
-// Emboss convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_emboss(matrix m) {
-	return -2 * m[0][0] - m[0][1] - m[1][0] + m[1][1] + m[1][2] + m[2][1] + 2 * m[2][2];
-}
-
-// Outline convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_outline(matrix m) {
-	return -m[0][0] - m[0][1] - m[0][2] - m[1][0] + 8 * m[1][1] - m[1][2] - m[2][0] - m[2][1] - m[2][2];
-}
-
 float flatten_top(float mag, float thresh) {
 	return mag < thresh ? thresh : mag;
 }
@@ -226,80 +106,6 @@ float emphasize_top(float mag, float thresh) {
 	return mag > 1 - thresh ? 1 - thresh : mag;
 }
 
-// Blend 2 floats using typical color blend modes.
-// 'bot' is base layer, 'top' is top layer.
-
-// None (returns a):0
-// Replace:1
-// Average:2
-// Add:3
-// Substract:4
-// Multiply:5
-// Divide:6
-// Lighten:7
-// Darken:8
-// Overlay:9
-// Screen:10
-// Difference:11
-// Soft Light:12
-float fea_blend(int blend_type, float bot, float top) {
-	float ret = 0;
-	if (blend_type == 0) {
-		// none
-		ret = bot;
-	} else if (blend_type == 1) {
-		// replace
-		ret = top;
-	} else if (blend_type == 2) {
-		// average
-		ret = (bot + top) * 0.5;
-	} else if (blend_type == 3) {
-		// add
-		ret = bot + top;
-	} else if (blend_type == 4) {
-		// substract
-		ret = bot - top;
-	} else if (blend_type == 5) {
-		// multiply
-		ret = bot * top;
-	} else if (blend_type == 6) {
-		// divide
-		float t = top == 0.0 ? 0.0000001 : top;
-		ret = bot / t;
-	} else if (blend_type == 7) {
-		// lighten
-		ret = max(bot, top);
-	} else if (blend_type == 8) {
-		// darken
-		ret = min(bot, top);
-	} else if (blend_type == 9) {
-		// overlay
-		if (bot <= 0.5) {
-			ret = 2 * bot * top;
-		} else {
-			ret = 1 - 2 * (1 - bot) * (1 - top);
-		}
-	} else if (blend_type == 10) {
-		// screen
-		ret = 1 - (1 - bot) * (1 - top);
-	} else if (blend_type == 11) {
-		// difference
-		ret = fabs(bot - top);
-	} else if (blend_type == 12) {
-		// soft light
-		ret = (1 - 2 * top) * pow(bot, 2) + 2 * bot * top;
-	}
-
-	return ret;
-}
-
-vector fea_blend(int blend_type, vector bot, vector top) {
-	return vector(
-		fea_blend(blend_type, bot[0], top[0]),
-		fea_blend(blend_type, bot[1], top[1]),
-		fea_blend(blend_type, bot[2], top[2])
-	);
-}
 
 shader OrganicNoise
 [[
@@ -315,10 +121,7 @@ shader OrganicNoise
 		string widget = "mapper",
 		string label = "Noise Type",
 		string options =
-			"Simplex:0"
-			"|Fractal Light:3"
-			"|Fractal Dark:1"
-			"|Fractal Lines:2"
+			custom_noise_opts
 			,
 		string help = "The source noise type. 'Fractal lines' doesn't play well with most options, but is there because why not.",
 		int connectable = 0,
@@ -346,19 +149,7 @@ shader OrganicNoise
 		string widget = "mapper",
 		string label = "Camo",
 		string options =
-			"None:0"
-			"|Overlay:9"
-			"|Replace:1"
-			"|Screen:10"
-			"|Average:2"
-			"|Lighten:7"
-			"|Darken:8"
-			"|Difference:11"
-			"|Soft Light:12"
-			"|Add:3"
-			"|Substract:4"
-			"|Multiply:5"
-			"|Divide:6"
+			fea_blend_opts
 			,
 		string help = "Gives a 'camouflage' look to the noise.",
 		int connectable = 0,
@@ -373,7 +164,7 @@ shader OrganicNoise
 		float max = 1,
 		int connectable = 0,
 		string packName = "Camo / Angle",
-		int widgetWidth = FEA_LPACK_W,
+		int widgetWidth = FEA_RPACK_W,
 	]],
 
 	int bubbles_mode = 0
@@ -381,19 +172,7 @@ shader OrganicNoise
 		string widget = "mapper",
 		string label = "Bubbles",
 		string options =
-			"None:0"
-			"|Overlay:9"
-			"|Replace:1"
-			"|Screen:10"
-			"|Average:2"
-			"|Lighten:7"
-			"|Darken:8"
-			"|Difference:11"
-			"|Soft Light:12"
-			"|Add:3"
-			"|Substract:4"
-			"|Multiply:5"
-			"|Divide:6"
+			fea_blend_opts
 			,
 		string help = "Gives a 'bubbly' thicker look to the noise.",
 		int connectable = 0,
@@ -408,7 +187,7 @@ shader OrganicNoise
 		float max = 1,
 		int connectable = 0,
 		string packName = "Bubbles / Strength",
-		int widgetWidth = FEA_LPACK_W,
+		int widgetWidth = FEA_RPACK_W,
 	]],
 
 	int splats_mode = 0
@@ -416,19 +195,7 @@ shader OrganicNoise
 		string widget = "mapper",
 		string label = "Splats",
 		string options =
-			"None:0"
-			"|Overlay:9"
-			"|Replace:1"
-			"|Screen:10"
-			"|Average:2"
-			"|Lighten:7"
-			"|Darken:8"
-			"|Difference:11"
-			"|Soft Light:12"
-			"|Add:3"
-			"|Substract:4"
-			"|Multiply:5"
-			"|Divide:6"
+			fea_blend_opts
 			,
 		string help = "Filters the noise according to a direction, giving 'splats' as a result.",
 		int connectable = 0,
@@ -443,7 +210,7 @@ shader OrganicNoise
 		float max = 1,
 		int connectable = 0,
 		string packName = "Splats / Angle",
-		int widgetWidth = FEA_LPACK_W,
+		int widgetWidth = FEA_RPACK_W,
 	]],
 
 	int threshold_mode = 0
@@ -467,7 +234,7 @@ shader OrganicNoise
 		float max = 1,
 		int connectable = 0,
 		string packName = "Threshold / Strength",
-		int widgetWidth = FEA_LPACK_W
+		int widgetWidth = FEA_RPACK_W
 	]],
 
 	int blackwhite_thresh = 1
@@ -499,7 +266,7 @@ shader OrganicNoise
 		string help = "Increase or decrease the over-sampling amount.",
 		string packName = "Over-Sampling / Strength",
 		int connectable = 0,
-		int widgetWidth = FEA_LPACK_W,
+		int widgetWidth = FEA_RPACK_W,
 	]],
 
 	int oversampling_noise_type = -1
@@ -507,10 +274,9 @@ shader OrganicNoise
 		string widget = "mapper",
 		string label = "Over-Sampling Noise",
 		string options =
-			"Same:-1"
-			"|Simplex:0"
-			"|Fractal:1"
-			"|Fractal Lines:2",
+			"Same:-1|"
+			custom_noise_opts
+			,
 		string help = "The type of noise to over-sample. By default, same type as 'Noise Type'.",
 		int connectable = 0,
 		string packName = "Over-Sampling Noise / Blend",
@@ -521,18 +287,7 @@ shader OrganicNoise
 		string widget = "mapper",
 		string label = "Over-Sampling Blend",
 		string options =
-			"Overlay:9"
-			"|Replace:1"
-			"|Screen:10"
-			"|Average:2"
-			"|Lighten:7"
-			"|Darken:8"
-			"|Difference:11"
-			"|Soft Light:12"
-			"|Add:3"
-			"|Substract:4"
-			"|Multiply:5"
-			"|Divide:6"
+			fea_blend_opts
 			,
 		string help = "How to blend the over-sampled noise.",
 		int connectable = 0,
@@ -561,7 +316,7 @@ shader OrganicNoise
 		string packName = "Girth / Strength",
 		float min = 0.001,
 		int connectable = 0,
-		int widgetWidth = FEA_LPACK_W,
+		int widgetWidth = FEA_RPACK_W,
 	]],
 
 	int girth_threshold = 0
@@ -583,7 +338,7 @@ shader OrganicNoise
 		string help = "The girth threshold limit value.",
 		string packName = "Girth-Threshold / Strength",
 		int connectable = 0,
-		int widgetWidth = FEA_LPACK_W,
+		int widgetWidth = FEA_RPACK_W,
 		float min = 0,
 		float max = 0.999,
 	]],
@@ -620,35 +375,6 @@ shader OrganicNoise
 		string packName = "Ramp / Clamp Output",
 	]],
 
-	FEA_SPACER(4)
-
-	int color_mode = 0
-	[[
-		string widget = "mapper",
-		string label = "Color Mode",
-		string options =
-			"Hue:0"
-			"|Heat Map:1"
-			"|Bright Burn:2"
-			"|Complements:3"
-			"|Analogous:4"
-			,
-		string help = "The output 'Color' algorithm to use.",
-		int connectable = 0,
-		string packName = "Color Mode / Tweak",
-	]],
-
-	float color_tweak = 0
-	[[
-		string label = "Color Tweak",
-		string help = "Changes settings according to selected color mode.",
-		float min = 0,
-		float max = 1,
-		int connectable = 0,
-		string packName = "Color Mode / Tweak",
-		int widgetWidth = FEA_LPACK_W,
-	]],
-
 	FEA_SPACER(5)
 
 	float uv_scale = 1.0
@@ -664,8 +390,7 @@ shader OrganicNoise
 		string help = "Transformed UVW coordinates. Animate 'w' with scene time for interesting results.",
 	]],
 
-	output float Out = 0,
-	output color Color = 0
+	output float Out = 0
 	// output vector VectorDisplacement = 0
 )
 {
@@ -689,13 +414,13 @@ shader OrganicNoise
 		grad = fea_sobel_gradient(sample_area);
 	}
 
-	// line experiment, Simplex lines.
-	{
-		// vector new_coord = coord + (noise_v * 2 - 1);
-		vector new_coord = coord + grad;
-		noise_v = abs(sin((new_coord[0] + new_coord[1]) * 10.0));
-		sample_area[1][1] = noise_v;
-	}
+	// // line experiment, Simplex lines.
+	// {
+	// 	// vector new_coord = coord + (noise_v * 2 - 1);
+	// 	vector new_coord = coord + grad;
+	// 	noise_v = abs(sin((new_coord[0] + new_coord[1]) * 10.0));
+	// 	sample_area[1][1] = noise_v;
+	// }
 
 	{
 		// noise_v = abs(sample_area[0][1] - sample_area[1][1]) + abs(sample_area[1][0] - sample_area[1][1]);
@@ -860,41 +585,6 @@ shader OrganicNoise
 	}
 
 	Out = noise_v;
-
-	float clamped_noise = noise_v;
-	if (!clamp_out) {
-		clamped_noise = clamp(noise_v, 0, 1);
-	}
-
-	color out_col;
-	if (color_mode == 0) {
-		// hsv
-		float col = fmod(noise_v + color_tweak, 1);
-		out_col = color("hsv", col, 1, 1);
-	} else if (color_mode == 1) {
-		// heat map
-		float g = 0.618033988749895;
-		float col = fmod((noise_v * 0.5) + g + color_tweak, 1);
-		out_col = color("hsv", col, 1, 1);
-	} else if (color_mode == 2) {
-		// bright burn
-		float g = 0.618033988749895;
-		float col = fmod((noise_v * 0.569) + g + color_tweak, 1);
-		out_col = color("hsv", col, 1 - clamped_noise, 1);
-	} else if (color_mode == 3) {
-		// complements
-		color start_col = color("hsv", color_tweak, 1, 1);
-		color end_col = color("hsv", 0.5 + color_tweak, 1, 1);
-
-		// out_col = mix(start_col, end_col, smoothstep(0.2, 0.8, clamped_noise));
-		out_col = mix(start_col, end_col, clamped_noise);
-	} else if (color_mode == 4) {
-		// analogous
-		float col = fmod(clamped_noise * 0.166666667 + color_tweak, 1) ;
-		out_col = color("hsv", col, 1, 1);
-	}
-
-	Color = out_col;
 
 	// Removed for time being. Needs some r&r.
 	// {
