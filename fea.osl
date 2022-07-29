@@ -99,6 +99,14 @@ float fea_outline(matrix m) {
  * Interpolation
  */
 
+// Given a value val, returns the closest multiple.
+float fea_closest_multiple(float val, float multiple) {
+	if (multiple == 0.0) {
+		return 0.0;
+	}
+	return floor(val / multiple) * multiple;
+}
+
 // Given the 3 colors and a precentage,
 // mix between them (1/3 per color).
 color fea_mix(color c1, color c2, color c3, float p) {

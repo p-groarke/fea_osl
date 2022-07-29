@@ -3,8 +3,8 @@
 
 import System.IO ()
 import System.Process ( readProcess, callProcess )
-import System.Directory ( createDirectoryIfMissing, findFileWith, listDirectory, copyFile, removeDirectory, removeDirectoryRecursive )
-import Control.Monad ( filterM, liftM2, zipWithM_ )
+import System.Directory ( createDirectoryIfMissing, findFileWith, listDirectory, copyFile, removeDirectory, removeDirectoryRecursive, doesDirectoryExist, setCurrentDirectory )
+import Control.Monad ( filterM, liftM2, zipWithM_, when )
 import Control.Exception ( assert )
 import Text.Printf ( printf )
 import Data.Char ( isSpace )
@@ -16,7 +16,7 @@ outDir :: String
 outDir = "build"
 
 tempBuildDir :: String
-tempBuildDir = "build/.temp"
+tempBuildDir = "build/FeaOSL"
 
 feaLibFilename :: String
 feaLibFilename = "fea.osl"
@@ -45,7 +45,7 @@ getFeaVer = do
 getZipFilename :: IO String
 getZipFilename = do
 	ver <- getFeaVer
-	let n = "FeaOsl-" ++ ver ++ ".zip"
+	let n = "FeaOSL-" ++ ver ++ ".zip"
 	return n
 
 replaceInclude :: String -> IO String
@@ -73,7 +73,8 @@ main = do
 	printf "Generating %s\n" out_filename
 
 	-- Cleanup, todo : At end
-	removeDirectoryRecursive tempBuildDir
+	dirExists <- doesDirectoryExist tempBuildDir
+	when dirExists (removeDirectoryRecursive tempBuildDir)
 	createDirectoryIfMissing True tempBuildDir
 
 	files <- listDirectory "."
@@ -96,6 +97,10 @@ main = do
 	zipWithM_ writeToTemp osl_filepaths new_file_contents
 
 	-- Now, zip everything in the temp directory.
-	let out_filepath = tempBuildDir ++ "/" ++ out_filename
-	callProcess "7z" ["a", "-aoa", "-tzip", out_filepath, "./" ++ tempBuildDir ++ "/*"]
+	let out_filepath = "FeaOSL/" ++ out_filename
+	-- callProcess "7z" ["a", "-aoa", "-tzip", out_filepath,
+	-- 		"./" ++ tempBuildDir ++ "/*"]
+	setCurrentDirectory "./build"
+	callProcess "7z" ["a", "-aoa", "-tzip", out_filepath,
+			"FeaOSL/*"]
 

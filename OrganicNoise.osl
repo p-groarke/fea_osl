@@ -212,38 +212,6 @@ shader OrganicNoise
 		int widgetWidth = FEA_RPACK_W,
 	]],
 
-	int threshold_mode = 0
-	[[
-		string widget = "mapper",
-		string label = "Threshold",
-		string options =
-			"None:0"
-			"|Above:1"
-			"|Below:2",
-		string help = "Keeps noise above or below a certain threshold.",
-		int connectable = 0,
-		string packName = "Threshold / Strength",
-	]],
-
-	float threshold_strength = 0.5
-	[[
-		string label = "Threshold Strength",
-		string help = "The threshold value.",
-		float min = 0,
-		float max = 1,
-		int connectable = 0,
-		string packName = "Threshold / Strength",
-		int widgetWidth = FEA_RPACK_W
-	]],
-
-	int blackwhite_thresh = 1
-	[[
-		string label = "Black and White Threshold",
-		string help = "If enabled, the noise that passes through threshold is pure white.",
-		string widget = "checkBox",
-		int connectable = 0,
-	]],
-
 	FEA_SPACER(1)
 
 	int over_sampling = 0
@@ -399,14 +367,16 @@ shader OrganicNoise
 	vector grad = 0;
 	matrix sample_area;
 	float noise_v = 0;
+	float sample_distance = 0.05;
 
 	{
 		// Gets wonky at very low sampling distances.
-		float sd = fabs(sampling_dist) < 0.05 ? 0.05 : sampling_dist;
+		sample_distance = fabs(sampling_dist) < 0.05 ? 0.05 : sampling_dist;
 
 		// Compute a 3x3 matrix of surrounding samples to the currently
 		// rendered point.
-		sample_area = noise_3x3(noise_type, coord, phase, vector(sd, 0, 0), vector(0, sd, 0));
+		sample_area = noise_3x3(noise_type, coord, phase,
+				vector(sample_distance, 0, 0), vector(0, sample_distance, 0));
 		noise_v = sample_area[1][1];
 
 		// Compute gradient of noise.
@@ -499,29 +469,7 @@ shader OrganicNoise
 		float s = fea_per_to_rad(splats_angle);
 		vector axis = fea_angle_to_vec(s);
 		float val = abs(dot(normalize(grad), axis));
-		// float val = dot(normalize(grad), axis);
-		// if (val < 0.95) {
-		// 	noise_v = 0;
-		// }
-		// val = fea_interp(10, val);
 		noise_v = fea_blend(splats_mode, noise_v, val);
-	}
-
-	// Threshold
-	if (threshold_mode == 1) {
-		// above
-		if (noise_v < threshold_strength) {
-			noise_v = 0.0;
-		} else if (blackwhite_thresh) {
-			noise_v = 1.0;
-		}
-	} else if (threshold_mode == 2) {
-		// below
-		if (noise_v > threshold_strength) {
-			noise_v = 0.0;
-		} else if (blackwhite_thresh) {
-			noise_v = 1.0;
-		}
 	}
 
 	// Over-sampling.
