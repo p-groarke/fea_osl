@@ -81,8 +81,12 @@ main = do
 
 	-- Copy supporting files (.md, .ui)
 	let support_files = filter
-			(liftM2 (||) (isSuffixOf ".md") (isSuffixOf ".ui"))
+			(\x -> isSuffixOf ".md" x || isSuffixOf ".ui" x || isSuffixOf ".csv" x)
 			files
+
+	-- let support_files = filter
+	-- 		(liftM2 (||) (isSuffixOf ".md") (isSuffixOf ".ui"))
+	-- 		files
 
 	mapM_ (\f -> copyFile f (tempBuildDir ++ "/" ++ f)) support_files
 

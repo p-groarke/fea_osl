@@ -31,3 +31,15 @@ SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacem
 <img src="doc/img/simpleocean_test1.png" width="49%" title="Test Render 1" alt="Shader Example">
 
 [More details](doc/simple_ocean.md)
+
+
+# Build Instructions
+
+* [Install haskell](https://www.haskell.org/ghcup/install/).
+* [Install 7-zip](https://www.7-zip.org/).
+* Run the build script, this will create a build folder and output the finalized shaders inside of it.
+
+```bash
+cd fea_osl
+runhaskell build.hs
+```

@@ -13,9 +13,9 @@
 // Fractal Inverse:3
 #define custom_noise_opts \
 		"Simplex:0" \
-		"|Fractal Light:3" \
-		"|Fractal Dark:1" \
-		"|Fractal Lines:2"
+		"|Fractal Light:1" \
+		"|Fractal Dark:2" \
+		"|Fractal Lines:3"
 
 float custom_noise(noise_t noise_type, vector coord, float phase) {
 	// Minimize calls to noise.
@@ -25,17 +25,17 @@ float custom_noise(noise_t noise_type, vector coord, float phase) {
 		// simplex
 		ret = (ret + 1) * 0.5;
 	} else if (noise_type == 1) {
-		// fractal
-		ret = fabs(ret);
+		// fractal light
+		ret = 1 - fabs(ret);
 	} else if (noise_type == 2) {
+		// fractal dark
+		ret = fabs(ret);
+	} else if (noise_type == 3) {
 		// fractal lines
 		ret = 1 - fabs(ret);
 		if (ret <= 0.99) {
 			ret = 0;
 		}
-	} else if (noise_type == 3) {
-		// fractal inverse
-		ret = 1 - fabs(ret);
 	}
 
 	return ret;
@@ -110,7 +110,7 @@ shader OrganicNoise
 [[
 	string help  =
 		"<h3>Organic Noise</h3>"
-		"Modulates and filters OSL noises to produce organic looking noises. Garden variety of caustic, fleshy and weird noises."
+		"Modulates and filters OSL noises to produce organic looking noises. Garden variety of caustic, fleshy and abstract noises."
 		,
 	string label = "Organic Noise"
 ]]
@@ -141,6 +141,28 @@ shader OrganicNoise
 			,
 		string help = "Applies an extra effect on your base noise.",
 		int connectable = 0,
+	]],
+
+	int line_mode = 0
+	[[
+		string widget = "mapper",
+		string label = "Lines",
+		string options =
+			fea_blend_opts
+			,
+		string help = "Creates lines distorted by noise.",
+		int connectable = 0,
+		string packName = "Lines / Spacing",
+	]],
+
+	float line_spacing = 1.0
+	[[
+		string label = "Line Spacing",
+		string help = "Space between lines.",
+		float min = 0.00001,
+		int connectable = 0,
+		string packName = "Lines / Spacing",
+		int widgetWidth = FEA_RPACK_W,
 	]],
 
 	int camo_mode = 0
@@ -189,26 +211,26 @@ shader OrganicNoise
 		int widgetWidth = FEA_RPACK_W,
 	]],
 
-	int splats_mode = 0
+	int crease_mode = 0
 	[[
 		string widget = "mapper",
-		string label = "Splats",
+		string label = "Crease",
 		string options =
 			fea_blend_opts
 			,
-		string help = "Filters the noise according to a direction, giving 'splats' as a result.",
+		string help = "Filters the noise according to a direction, resulting in dark lines with peak 'creases'.",
 		int connectable = 0,
-		string packName = "Splats / Angle",
+		string packName = "Crease / Angle",
 	]],
 
-	float splats_angle = 0.0
+	float crease_angle = 0.0
 	[[
-		string label = "Splats Direction",
-		string help = "Affects orientation of splats.",
+		string label = "Crease Direction",
+		string help = "Affects orientation of creases.",
 		float min = 0,
 		float max = 1,
 		int connectable = 0,
-		string packName = "Splats / Angle",
+		string packName = "Crease / Angle",
 		int widgetWidth = FEA_RPACK_W,
 	]],
 
@@ -249,7 +271,7 @@ shader OrganicNoise
 		string packName = "Over-Sampling Noise / Blend",
 	]],
 
-	int overampling_blend = 8
+	int overampling_blend = 13
 	[[
 		string widget = "mapper",
 		string label = "Over-Sampling Blend",
@@ -310,6 +332,47 @@ shader OrganicNoise
 		float max = 0.999,
 	]],
 
+	FEA_SPACER(6)
+
+	int step_mode = 0
+	[[
+		string widget = "mapper",
+		string label = "Step",
+		string options =
+			fea_blend_opts
+			,
+		string help = "Creates 'level sets' or topological layers.",
+		int connectable = 0,
+		string packName = "Step / Amount",
+	]],
+
+	int step_amount = 10
+	[[
+		string label = "Step Amount",
+		string help = "The number of steps to create.",
+		int min = 2,
+		int connectable = 0,
+		string packName = "Step / Amount",
+		int widgetWidth = FEA_RPACK_W,
+	]],
+
+	float interpolate = 0
+	[[
+		string label = "Interpolate Output",
+		string help = "Interpolates final result. Positive is exponential, negative is logarithmic and '0' is linear interpolation (none).",
+		int connectable = 0,
+		string packName = "Interpolate / Clamp",
+	]],
+
+	int clamp_out = 1
+	[[
+		string label = "Clamp Output",
+		string help = "Clamps the output value between [0..1].",
+		string widget = "checkBox",
+		int connectable = 0,
+		string packName = "Interpolate / Clamp",
+	]],
+
 	FEA_SPACER(3)
 
 	float sampling_dist = 1
@@ -325,44 +388,32 @@ shader OrganicNoise
 		string help = "The 4th coordinate of the noise. Animate with scene time for interesting results.",
 	]],
 
-	float ramp_out = 0
-	[[
-		string label = "Ramp Output",
-		string help = "Interpolates final result. Positive is exponential, negative is logarithmic and '0' is linear interpolation (none).",
-		int connectable = 0,
-		string packName = "Ramp / Clamp Output",
-	]],
-
-	int clamp_out = 1
-	[[
-		string label = "Clamp Output",
-		string help = "Clamps the output value to [0..1].",
-		string widget = "checkBox",
-		int connectable = 0,
-		string packName = "Ramp / Clamp Output",
-	]],
-
-	FEA_SPACER(5)
-
-	float uv_scale = 1.0
+	float uv_scale = 0.25
 	[[
 		string label = "UV Scale",
 		string help = "Scale your UVWs up or down. For more betterer transformations, use UVW Transform node.",
+		float min = 0.00001,
 		int connectable = 0,
 	]],
 
-	point uvw = point(u, v, 0)
+	point uvw = transform("object", P)
 	[[
 		string label = "UVW",
 		string help = "Transformed UVW coordinates. Animate 'w' with scene time for interesting results.",
 	]],
 
 	output float Out = 0
-	// output vector VectorDisplacement = 0
 )
 {
 	float epsilon = 0.00001;
-	point orig_coord = uvw * uv_scale;
+
+	// Make default scale a little smaller.
+	float muv_scale = uv_scale;
+	if (uvw == transform("object", P)) {
+		muv_scale = uv_scale * 10.0;
+	}
+
+	point orig_coord = uvw / muv_scale;
 	point coord = orig_coord;
 	vector grad = 0;
 	matrix sample_area;
@@ -382,52 +433,6 @@ shader OrganicNoise
 		// Compute gradient of noise.
 		grad = fea_sobel_gradient(sample_area);
 	}
-
-	// // line experiment, Simplex lines.
-	// {
-	// 	// vector new_coord = coord + (noise_v * 2 - 1);
-	// 	vector new_coord = coord + grad;
-	// 	noise_v = abs(sin((new_coord[0] + new_coord[1]) * 10.0));
-	// 	sample_area[1][1] = noise_v;
-	// }
-
-	{
-		// noise_v = abs(sample_area[0][1] - sample_area[1][1]) + abs(sample_area[1][0] - sample_area[1][1]);
-		// if (abs(sample_area[0][1] - sample_area[1][1]) < 0.01) {
-		// 	noise_v *= 2;
-		// 	// int x = floor(coord[0]);
-		// 	// if ((x % 2) == 0) {
-		// 	// 	noise_v = 0;
-		// 	// }
-		// }
-
-		// if (abs(sample_area[1][0] - sample_area[1][1]) < 0.01) {
-		// 	noise_v *= 2;
-		// }
-
-		// if (abs(sample_area[0][0] - sample_area[1][1]) < 0.01) {
-		// 	noise_v *= 2;
-		// }
-
-		// if (abs(sample_area[2][0] - sample_area[1][1]) < 0.01) {
-		// 	noise_v *= 2;
-		// }
-
-		// vector noise_dir = fea_angle_to_vec(fea_per_to_rad(noise_v));
-		// matrix area_dirs;
-		// float tot = 0;
-		// for (int i = 0; i < 3; ++i) {
-		// 	for (int j = 0; j < 3; ++j) {
-		// 		tot += sample_area[i][j];
-		// 	}
-		// }
-		// tot /= 9;
-		// noise_v = tot;
-		// if (abs(dot(noise_dir, vector(1,0,0))) < 0.95) {
-		// 	noise_v = 0;
-		// }
-	}
-
 
 	if (noise_effect == 1) {
 		// Exponent
@@ -449,13 +454,19 @@ shader OrganicNoise
 		noise_v = fea_outline(sample_area);
 	}
 
-
-
 	float mag = length(grad);
 	float dir = atan2(grad[1], grad[0]);
 
+	// Lines
+	if (line_mode != 0) {
+		vector new_coord = coord + grad;
+		float lspace = 1.0 / (line_spacing * 0.5);
+		float val = abs(sin((new_coord[0] + new_coord[1]) * lspace));
+		noise_v = fea_blend(line_mode, noise_v, val);
+	}
+
 	// Camo
-	{
+	if (camo_mode != 0) {
 		float camo_dir = fea_rad_to_per(dir + M_PI) + camo_angle;
 		camo_dir = fmod(camo_dir, 1);
 		noise_v = fea_blend(camo_mode, noise_v, camo_dir);
@@ -464,22 +475,18 @@ shader OrganicNoise
 	// Bubbles
 	noise_v = fea_blend(bubbles_mode, noise_v, mag * bubbles_strength);
 
-	// Squeeze?
-	{
-		float s = fea_per_to_rad(splats_angle);
+	// Creases
+	if (crease_mode != 0) {
+		float s = fea_per_to_rad(crease_angle);
 		vector axis = fea_angle_to_vec(s);
 		float val = abs(dot(normalize(grad), axis));
-		noise_v = fea_blend(splats_mode, noise_v, val);
+		noise_v = fea_blend(crease_mode, noise_v, val);
 	}
 
 	// Over-sampling.
 	if (over_sampling == 1) {
 		// ring
 		coord += grad * oversampling_strength;
-
-		// coord += mag * oversampling_strength;
-		// coord = dir;
-		// coord = normalize(grad);
 	} else if (over_sampling == 2) {
 		// pinch
 		coord += normalize(grad) * oversampling_strength;
@@ -495,6 +502,7 @@ shader OrganicNoise
 		noise_v = fea_blend(overampling_blend, noise_v, os_noise);
 	}
 
+	// Girth
 	// The threshold acts invertly dependending on girth,
 	// flip it so UI makes sense.
 	if (girth_threshold == 1) {
@@ -523,10 +531,19 @@ shader OrganicNoise
 		noise_v /= mag;
 	}
 
-	if (ramp_out != 0) {
-		noise_v = fea_interp(ramp_out, noise_v);
+	// Step
+	if (step_mode != 0) {
+		int inoise = int(noise_v * step_amount);
+		float val = float(inoise) / float(step_amount);
+		noise_v = fea_blend(step_mode, noise_v, val);
 	}
 
+	// Interpolate
+	if (interpolate != 0) {
+		noise_v = fea_interp(interpolate, noise_v);
+	}
+
+	// Clamp
 	if (clamp_out) {
 		noise_v = clamp(noise_v, 0, 1);
 	}
