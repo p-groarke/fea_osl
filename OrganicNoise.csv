@@ -1,13 +1,19 @@
 name,UUID,category,cmui_swatch,noise_type,noise_effect,line_mode,line_spacing,camo_mode,camo_angle,bubbles_mode,bubbles_strength,crease_mode,crease_angle,over_sampling,oversampling_strength,oversampling_noise_type,overampling_blend,girth_mode,girth_strength,girth_threshold,girth_threshold_strength,step_mode,step_amount,interpolate,clamp_out,sampling_dist,phase
 Defaults,OrgN-001,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,0,1.0,-1,13,0,1.0,0,0.5,0,10,0.0,TRUE,1.0,0.0
-Cartoon Scribbles,OrgN-002,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,2,1.0,-1,5,0,1.0,0,0.5,4,2,0.0,TRUE,1.0,0.0
-Light Splotches,OrgN-005,Noise,Swatch-Torus,0,3,15,0.25,0,0.0,0,1.0,0,0.0,1,1.0,-1,21,1,1.0,2,0.5,3,5,-5.0,TRUE,1.0,0.0
-Glassy Shapes,OrgN-004,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,2,1.0,-1,5,0,1.0,0,0.5,14,2,0.0,TRUE,1.0,0.0
-Portal To Hell,OrgN-006,Noise,Swatch-Torus,0,0,1,0.2,0,0.0,20,1.0,20,0.0,1,1.0,2,13,1,1.0,2,0.5,0,10,0.0,TRUE,1.0,0.0
-Ridged Holes,OrgN-003,Noise,Swatch-Torus,0,5,5,0.4,0,0.0,0,1.0,0,0.0,0,1.0,-1,13,0,1.0,0,0.5,0,10,0.0,TRUE,1.0,0.0
-Oil Mask,OrgN-007,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,1,1.0,3,1,0,1.0,0,0.5,0,10,0.0,TRUE,0.1,0.0
-Plastic Bubbles,OrgN-008,Noise,Swatch-Torus,2,0,0,1.0,0,0.0,0,1.0,0,0.0,0,1.0,-1,13,2,2.0,0,0.5,0,10,0.0,TRUE,0.1,0.0
+Abstract - Portal To Hell,OrgN-006,Noise,Swatch-Torus,0,0,1,0.2,0,0.0,20,1.0,20,0.0,1,1.0,2,13,1,1.0,2,0.5,0,10,0.0,TRUE,1.0,0.0
+Abstract - Ridged Holes,OrgN-003,Noise,Swatch-Torus,0,5,5,0.4,0,0.0,0,1.0,0,0.0,0,1.0,-1,13,0,1.0,0,0.5,0,10,0.0,TRUE,1.0,0.0
+Caustics - Bright,OrgN-015,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,22,1.0,22,0.0,2,1.0,-1,8,2,1.0,0,0.5,0,10,0.0,TRUE,5.0,0.0
+Caustics - Dark,OrgN-016,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,2,1.0,-1,20,2,1.0,0,0.5,0,10,2.0,TRUE,5.0,0.0
+Caustics - Fractals,OrgN-017,Noise,Swatch-Torus,2,0,0,1.0,0,0.0,22,1.0,22,0.0,2,0.5,-1,8,2,1.0,0,0.5,0,10,2.0,TRUE,5.0,0.0
+Caustics - Oily,OrgN-018,Noise,Swatch-Torus,2,0,0,1.0,0,0.0,22,1.0,22,0.0,2,0.5,3,8,2,1.0,0,0.5,0,10,2.0,TRUE,5.0,0.0
 Cells,OrgN-009,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,3,1.0,0,0.0,0,1.0,-1,13,0,1.0,0,0.5,0,10,0.0,TRUE,0.1,0.2
-Cells Mask,OrgN-010,Noise,Swatch-Torus,2,0,0,1.0,0,0.0,19,1.0,0,0.0,0,1.0,-1,13,0,1.0,0,0.5,0,10,0.0,TRUE,0.1,0.2
-Stretched Pinholes,OrgN-011,Noise,Swatch-Torus,1,0,0,1.0,0,0.0,4,0.8,0,0.0,2,1.5,-1,14,0,1.0,0,0.5,0,10,0.0,TRUE,0.1,0.0
-Stretched Fabric,OrgN-012,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,4,1.0,0,0.0,2,1.0,-1,14,0,1.0,0,0.5,0,10,0.0,TRUE,1.0,0.0
+Cells - Mask,OrgN-010,Noise,Swatch-Torus,2,0,0,1.0,0,0.0,19,1.0,0,0.0,0,1.0,-1,13,0,1.0,0,0.5,0,10,0.0,TRUE,0.1,0.2
+Fabric - Pinholes,OrgN-011,Noise,Swatch-Torus,1,0,0,1.0,0,0.0,4,0.8,0,0.0,2,1.5,-1,14,0,1.0,0,0.5,0,10,0.0,TRUE,0.1,0.0
+Fabric - Stretch,OrgN-012,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,4,1.0,0,0.0,2,1.0,-1,14,0,1.0,0,0.5,0,10,0.0,TRUE,1.0,0.0
+Fabric - Plastic Bumps,OrgN-008,Noise,Swatch-Torus,2,0,0,1.0,0,0.0,0,1.0,0,0.0,0,1.0,-1,13,2,2.0,0,0.5,0,10,0.0,TRUE,0.1,0.0
+Oil - Mask,OrgN-007,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,1,1.0,3,1,0,1.0,0,0.5,0,10,0.0,TRUE,0.1,0.0
+Membrane,OrgN-014,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,0,1.0,-1,13,2,2.0,1,0.5,0,10,-5.0,TRUE,1.0,0.0
+Splotches - Cartoony,OrgN-002,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,2,1.0,-1,5,0,1.0,0,0.5,4,2,0.0,TRUE,1.0,0.0
+Splotches - 2D Light,OrgN-005,Noise,Swatch-Torus,0,3,15,0.25,0,0.0,0,1.0,0,0.0,1,1.0,-1,21,1,1.0,2,0.5,3,5,-5.0,TRUE,1.0,0.0
+Splotches - Glassy,OrgN-004,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,2,1.0,-1,5,0,1.0,0,0.5,14,2,0.0,TRUE,1.0,0.0
+Splotches - Tearing,OrgN-013,Noise,Swatch-Torus,1,5,0,1.0,0,0.0,4,1.0,6,0.0,2,1.5,-1,14,1,1.0,0,0.5,0,10,10.0,TRUE,0.2,0.0
