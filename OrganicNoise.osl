@@ -341,7 +341,7 @@ shader OrganicNoise
 		int connectable = 0,
 		int widgetWidth = FEA_RPACK_W,
 		float min = 0,
-		float max = 0.999,
+		float max = 0.9,
 	]],
 
 	FEA_SPACER(6)
@@ -390,14 +390,14 @@ shader OrganicNoise
 	float sampling_dist = 1
 	[[
 		string label = "Sampling Distance",
-		string help = "The 'search range' of the neighbours.",
+		string help = "The 'search range' of the neighbours. Low distances give a 'cell' look. Higher sampling distances reduce tiling.",
 		int connectable = 0,
 	]],
 
 	float in_phase = 0
 	[[
 		string label = "Phase",
-		string help = "The 4th coordinate of the noise. Animate with scene time for interesting results."
+		string help = "The 4th coordinate of the noise. You can animate with scene time for movement. "
 				"For interesting results and 'edge distortion', feed another noise to this parameter.",
 	]],
 
@@ -441,7 +441,7 @@ shader OrganicNoise
 		sample_distance = fabs(sampling_dist) < 0.05 ? 0.05 : sampling_dist;
 
 		// Low sampling distances give a "cell" look, so we can't push it too
-		// far with the entropy.
+		// far with the entropy. The higher the sampling dist, the more random.
 		sample_distance += entropy * sample_distance;
 
 		// Compute a 3x3 matrix of surrounding samples to the currently
