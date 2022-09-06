@@ -41,6 +41,18 @@ float custom_noise(noise_t noise_type, vector coord, float phase) {
 	return ret;
 }
 
+float fbm(int iterations, vector coord, float phase) {
+	float ret = 0.0;
+
+	for (int i = 1; i < iterations + 1; ++i) {
+		float size = i / float(iterations);
+		ret += noise("usimplex", coord / size, phase + size) * size;
+	}
+
+	ret /= float(iterations);
+	return ret;
+}
+
 // Returns a 3x3 matrix of noise values around
 // center coords x,y.
 matrix noise_3x3(noise_t noise_type, vector coord, float phase, vector xmove, vector ymove) {
@@ -382,10 +394,11 @@ shader OrganicNoise
 		int connectable = 0,
 	]],
 
-	float phase = 0
+	float in_phase = 0
 	[[
 		string label = "Phase",
-		string help = "The 4th coordinate of the noise. Animate with scene time for interesting results.",
+		string help = "The 4th coordinate of the noise. Animate with scene time for interesting results."
+				"For interesting results and 'edge distortion', feed another noise to this parameter.",
 	]],
 
 	float uv_scale = 0.25
@@ -419,10 +432,17 @@ shader OrganicNoise
 	matrix sample_area;
 	float noise_v = 0;
 	float sample_distance = 0.05;
+	float phase = in_phase;
+	float entropy = fbm(3, coord, phase);
+	// phase *= entropy;
 
 	{
 		// Gets wonky at very low sampling distances.
 		sample_distance = fabs(sampling_dist) < 0.05 ? 0.05 : sampling_dist;
+
+		// Low sampling distances give a "cell" look, so we can't push it too
+		// far with the entropy.
+		sample_distance += entropy * sample_distance;
 
 		// Compute a 3x3 matrix of surrounding samples to the currently
 		// rendered point.
