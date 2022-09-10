@@ -19,7 +19,7 @@ Curvalicious is a fast (no raytracing) screen-space curvature shader. It outputs
 Utility helper that outputs distance to picked node's center.
 
 ## Organic Noise
-Organic looking noise generator. Caustics, fleshy bubbles and other strange noises.
+Organic looking noise generator. Caustics, fleshy bubbles and other abstract noises.
 
 <img src="doc/img/organic_noise.png" width="49%" title="Organic Noise" alt="Shader Example">
 
@@ -31,3 +31,15 @@ SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacem
 <img src="doc/img/simpleocean_test1.png" width="49%" title="Test Render 1" alt="Shader Example">
 
 [More details](doc/simple_ocean.md)
+
+
+# Build Instructions
+
+* [Install haskell](https://www.haskell.org/ghcup/install/).
+* [Install 7-zip](https://www.7-zip.org/).
+* Run the build script, this will create a build folder and output the finalized shaders inside of it.
+
+```bash
+cd fea_osl
+runhaskell build.hs
+```

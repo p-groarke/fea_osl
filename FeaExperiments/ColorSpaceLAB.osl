@@ -1,0 +1,62 @@
+// ColorSpace shader
+// ColorSpace.osl, by Changsoo Eun, adapted by Zap Andersson, Philippe Groarke
+// Modified: 2019-11-22
+// Copyright 2019 Autodesk Inc, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+
+
+
+shader ColorSpace
+[[
+	string help = "Convert RGB / HSV / YIQ / XYZ / xyY / Lab",
+	string label = "Color Space Lab",
+	string category = "Math Color"
+]]
+(
+	string FromSpace = "hsv"
+	[[ string widget = "mapper",
+		string options = "rgb:rgb|hsv (hue, saturation, and value):hsv|hsl (hue, saturation, and lightness):hsl"
+			"|YIQ (for the NTSC television standard):YIQ|XYZ (CIE XYZ coordinates):XYZ|xyY (CIE xyY coordinates):xyY|Lab (CIE LAB coordinates):Lab",
+		string label = "From space:"]],
+	string ToSpace = "rgb"
+	[[ string widget = "mapper",
+		string options = "rgb:rgb|hsv (hue, saturation, and value):hsv|hsl (hue, saturation, and lightness):hsl"
+			"|YIQ (for the NTSC television standard):YIQ|XYZ (CIE XYZ coordinates):XYZ|xyY (CIE xyY coordinates):xyY|Lab (CIE LAB coordinates):Lab",
+		string label = "To space:"]],
+
+	vector In = 0.0,
+	output color Out = 0.0
+)
+{
+	if (FromSpace == "Lab" && ToSpace == "Lab") {
+		Out = In;
+		return;
+	}
+
+	if (FromSpace == "Lab") {
+		// Convert from LAB to XYZ manually, then use transformc.
+		float x, y, z;
+		y = In[0] * (1.0 / 116.0) + 16.0 / 116.0;
+		x = In[1] * (1.0 / 500.0) + y;
+		z = In[2] * (-1.0 / 200.0) + y;
+
+		x = x > 6.0 / 29.0 ? x * x * x : x * (108.0 / 841.0) - 432.0 / 24389.0;
+		y = In[0] > 8.0 ? y * y * y : In[0] * (27.0 / 24389.0);
+		z = z > 6.0 / 29.0 ? z * z * z : z * (108.0 / 841.0) - 432.0 / 24389.0;
+
+		Out = transformc("XYZ", ToSpace, color(x,y,z));
+		return;
+	}
+
+	if (ToSpace == "Lab") {
+		// Convert into XYZ first, then convert to LAB manually.
+		color xyz = transformc(FromSpace, "XYZ", In);
+		Out[0] = xyz[1] * 116.0 - 16.0;
+		Out[1] = (xyz[0] - xyz[1]) * 500.0;
+		Out[2] = (xyz[1] - xyz[2]) * 200.0;
+		return;
+	}
+
+	Out = transformc(FromSpace , ToSpace, In);
+}
