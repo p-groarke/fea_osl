@@ -598,12 +598,4 @@ shader OrganicNoise
 	}
 
 	Out = noise_v;
-
-	// Removed for time being. Needs some r&r.
-	// {
-	// 	vector coord_disp = coord - orig_coord;
-	// 	// vector disp = vector(-coord_disp[0], -coord_disp[1], Out);
-	// 	vector disp = vector(coord_disp[0], coord_disp[1], Out);
-	// 	VectorDisplacement = disp;
-	// }
 }
