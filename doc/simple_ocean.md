@@ -3,7 +3,7 @@ SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacem
 
 <img src="img/simpleocean_test1.png" width="49%" title="Test Render 1" alt="Shader Example"> <img src="img/simpleocean_test2.png" width="49%" title="Test Render 2 - Simple Foam Shading" alt="Shader Example">
 <img src="img/simpleocean_1.1_deep_turbulent.png" width="49%" title="v1.1 - Test Render Turbulent Ocean" alt="Shader Example"> <img src="img/simpleocean_1.1_shallow_lake.png" width="49%" title="v1.1 - Test Render Calm Lake" alt="Shader Example">
-<a href="https://www.youtube.com/watch?v=YeeyUybFUvM"><img src="img/simpleocean_play.png" width="98.5%" title="Play Demo"></a>
+<a href="https://www.youtube.com/watch?v=YeeyUybFUvM" target="_blank"><img src="img/simpleocean_play.png" width="98.5%" title="Play Demo"></a>
 
 ## Getting Started
 - Create a Plane of reasonable size. Use the UVW Map modifier and check "XYZ to UVW".

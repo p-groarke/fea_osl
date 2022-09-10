@@ -3,7 +3,7 @@ Curvalicious is a fast (no raytracing) screen-space curvature OSL shader. It out
 
 It is implemented using [Vergne et al. 2009](#citation) with additional processes to improve detection at silhouette and for invalid samples (samples perpendicular to camera). These additions make the detection much more stable at different viewing angles.
 
-<a href="https://www.youtube.com/watch?v=hg3oJkCNjzg"><img src="img/curvalicious_play.png" width="98.5%" title="Play Demo"></a>
+<a href="https://www.youtube.com/watch?v=hg3oJkCNjzg" target="_blank"><img src="img/curvalicious_play.png" width="98.5%" title="Play Demo"></a>
 
 ### Curvature Map
 A red/blue map. Red curves are concave, blue curves are convex, black denotes little curvature.
