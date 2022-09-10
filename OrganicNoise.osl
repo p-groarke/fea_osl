@@ -391,6 +391,8 @@ shader OrganicNoise
 	[[
 		string label = "Sampling Distance",
 		string help = "The 'search range' of the neighbours. Low distances give a 'cell' look. Higher sampling distances reduce tiling.",
+		float min = 0.05,
+		float max = 100,
 		int connectable = 0,
 	]],
 
@@ -399,6 +401,16 @@ shader OrganicNoise
 		string label = "Phase",
 		string help = "The 4th coordinate of the noise. You can animate with scene time for movement. "
 				"For interesting results and 'edge distortion', feed another noise to this parameter.",
+		string packName = "Phase / Perturb",
+	]],
+
+	int in_perturb_phase = 0
+	[[
+		string label = "Perturb Phase",
+		string help = "Applies some randomness to the phase itself. Can lead to interesting animations or distortions.",
+		int connectable = 0,
+		string widget = "checkBox",
+		string packName = "Phase / Perturb",
 	]],
 
 	float uv_scale = 0.25
@@ -434,20 +446,34 @@ shader OrganicNoise
 	float sample_distance = 0.05;
 	float phase = in_phase;
 	float entropy = fbm(3, coord, phase);
-	// phase *= entropy;
+
+
+	if (in_perturb_phase) {
+		phase += entropy;
+	}
 
 	{
 		// Gets wonky at very low sampling distances.
-		sample_distance = fabs(sampling_dist) < 0.05 ? 0.05 : sampling_dist;
+		sample_distance = sampling_dist;
 
 		// Low sampling distances give a "cell" look, so we can't push it too
 		// far with the entropy. The higher the sampling dist, the more random.
 		sample_distance += entropy * sample_distance;
 
+		// Add some perturberance if enabled.
+		vector xmove;
+		vector ymove;
+		if (in_perturb_phase) {
+			xmove = vector(sample_distance, 0, phase);
+			ymove = vector(0, sample_distance, phase);
+		} else {
+			xmove = vector(sample_distance, 0, 0);
+			ymove = vector(0, sample_distance, 0);
+		}
+
 		// Compute a 3x3 matrix of surrounding samples to the currently
 		// rendered point.
-		sample_area = noise_3x3(noise_type, coord, phase,
-				vector(sample_distance, 0, 0), vector(0, sample_distance, 0));
+		sample_area = noise_3x3(noise_type, coord, phase, xmove, ymove);
 		noise_v = sample_area[1][1];
 
 		// Compute gradient of noise.
@@ -480,8 +506,11 @@ shader OrganicNoise
 	// Lines
 	if (line_mode != 0) {
 		vector new_coord = coord + grad;
+		if (in_perturb_phase) {
+			new_coord[2] = phase;
+		}
 		float lspace = 1.0 / (line_spacing * 0.5);
-		float val = abs(sin((new_coord[0] + new_coord[1]) * lspace));
+		float val = abs(sin((new_coord[0] + new_coord[1] + new_coord[2]) * lspace));
 		noise_v = fea_blend(line_mode, noise_v, val);
 	}
 
