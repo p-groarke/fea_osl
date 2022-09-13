@@ -19,6 +19,7 @@ Fabric - Stretch,OrgN-012,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,4,1.0,0,0.0,2,1.0,-
 Oil - Mask,OrgN-007,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,1,1.0,3,1,0,1.0,0,0.5,0,10,0.0,TRUE,1.0,0.0,FALSE
 Oil - Shiny,OrgN-024,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,1,1.0,3,11,2,0.5,2,0.5,0,10,5.0,TRUE,10.0,0.0,FALSE
 Membrane,OrgN-014,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,0,1.0,0,0.0,0,1.0,-1,13,2,2.0,1,0.5,0,10,-5.0,TRUE,1.0,0.0,FALSE
+Plasma,OrgN-030,Noise,Swatch-Torus,0,1,3,0.65,3,0.0,3,0.35,8,0.3,1,13.0,1,11,1,0.5,2,0.2,11,6,0.0,TRUE,1.35,0.0,TRUE
 Smoke - Gooey,OrgN-025,Noise,Swatch-Torus,0,0,3,2.75,0,0.0,3,1.0,0,0.0,1,0.9,-1,17,1,1.0,2,0.5,0,10,0.0,TRUE,1.0,0.0,TRUE
 Smoke - Puffs,OrgN-027,Noise,Swatch-Torus,0,0,0,1.0,0,0.0,4,1.0,6,0.0,2,1.0,-1,16,1,1.0,2,0.5,0,10,0.0,TRUE,1.0,0.0,TRUE
 Smoke - Rings,OrgN-028,Noise,Swatch-Torus,0,6,0,1.0,0,0.0,4,1.0,6,0.0,1,1.0,-1,10,1,1.0,0,0.5,9,50,0.0,TRUE,1.0,0.0,TRUE
