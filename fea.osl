@@ -289,3 +289,11 @@ vector fea_blend(int blend_type, vector bot, vector top) {
 		fea_blend(blend_type, bot[2], top[2])
 	);
 }
+
+
+float fea_average(color in) {
+	return (in[0] + in[1] + in[2]) / 3.0;
+}
+float fea_average(vector in) {
+	return (in[0] + in[1] + in[2]) / 3.0;
+}
