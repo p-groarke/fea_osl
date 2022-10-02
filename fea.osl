@@ -297,3 +297,38 @@ float fea_average(color in) {
 float fea_average(vector in) {
 	return (in[0] + in[1] + in[2]) / 3.0;
 }
+
+// Given a grayscale float input, creates "level sets"
+// and blends according to step_mode (see fea_blend for blend options).
+float fea_fancy_step(int step_mode, int step_amount, float in_val) {
+	int int_val = int(in_val * step_amount);
+	float val = float(int_val) / float(step_amount);
+	return fea_blend(step_mode, in_val, val);
+}
+
+
+/**
+ * Math Utils
+ */
+ float fea_fract(float in) {
+	return in - floor(in);
+ }
+ color fea_fract(color in) {
+	return in - floor(in);
+ }
+ vector fea_fract(vector in) {
+	return in - floor(in);
+ }
+
+// Clouds (aka Fractal Brownian Motion).
+float fea_fbm(int iterations, vector coord, float phase) {
+	float ret = 0.0;
+
+	for (int i = 1; i < iterations + 1; ++i) {
+		float size = i / float(iterations);
+		ret += noise("usimplex", coord / size, phase + size) * size;
+	}
+
+	ret /= float(iterations);
+	return ret;
+}

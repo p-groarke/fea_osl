@@ -1,0 +1,213 @@
+// ColorScheme - Various schemes to convert a float grayscale map to color.
+// ColorScheme by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea.osl"
+
+#define degs30 0.0833333333333333
+#define degs60 0.1666666666666667
+
+// Given a hue and how many levels to output,
+// returns the closest multiple.
+float flattenize(int levels, float in_val) {
+	if (!levels) {
+		return in_val;
+	}
+
+	float multiple = 1.0 / float(levels);
+	return ceil(in_val / multiple) * multiple;
+}
+
+shader ColorScheme
+[[
+	string help  =
+		"<h3>Color Scheme</h3>"
+		"Various schemes to convert a float grayscale map to color.\n"
+		"Expects values between [0, 1], clamps input."
+		,
+	string label = "Color Scheme"
+]]
+(
+	float In = 0
+	[[
+		string label = "In",
+		string help = "Input grayscale map, expects float.",
+	]],
+
+	int in_invert = 0
+	[[
+		string label = "Invert",
+		string help = "Flips the input values, 1 becomes 0, 0 becomes 1.",
+		int connectable = 0,
+		string widget = "checkBox",
+	]],
+
+	// FEA_SPACER(0),
+
+	int in_color_mode = 0
+	[[
+		string widget = "mapper",
+		string label = "Color Mode",
+		string options =
+			"Simple Hue:0"
+			"|Heat Map:1"
+			"|Bright Burn:2"
+			"|Complements:3"
+			"|Analogous:4"
+			"|Split-Complementary:5"
+			"|Triad:6"
+			"|Tetradic:7"
+			"|Square:8"
+			,
+		string help = "The output 'Color' algorithm to use.",
+		int connectable = 0,
+		string packName = "Color Mode / Hue",
+	]],
+
+	float in_hue = 0
+	[[
+		string label = "Hue",
+		string help = "Cycles through available hues.",
+		// float min = 0,
+		// float max = 1,
+		string packName = "Color Mode / Hue",
+		int widgetWidth = FEA_RPACK_W,
+	]],
+
+	FEA_SPACER(1),
+
+	int in_step_amount = 6
+	[[
+		string label = "Step Amount",
+		string help = "The number of steps to use for 'Flatten' and for 'Countour' settings.",
+		int min = 2,
+		int connectable = 0,
+	]],
+
+
+	int in_flatten = 0
+	[[
+		string label = "Flatten",
+		string help = "Flatten colors to selected bands.",
+		int connectable = 0,
+		string widget = "checkBox",
+	]],
+
+	int in_contours = 0
+	[[
+		string label = "Contour",
+		string help = "Draw contours / edges according to number of levels.",
+		int connectable = 0,
+		string widget = "checkBox",
+		string packName = "Countour / Soft"
+	]],
+
+	int in_smooth_contours = 0
+	[[
+		string label = "Soften Contour",
+		string help = "Soften edges of contour lines.",
+		int connectable = 0,
+		string widget = "checkBox",
+		string packName = "Countour / Soft"
+	]],
+
+	float in_contour_width = 1.0
+	[[
+		string label = "Contour Width",
+		string help = "The contour width.",
+		int connectable = 0,
+		float min = 0.0001,
+	]],
+
+	output color Out = 0
+)
+{
+	float val = clamp(In, 0.0, 1.0);
+	val = in_invert ? 1.0 - val : val;
+
+	float hue = in_hue;
+	float hsv_v = 1.0;
+
+	if (in_contours && val != 0.0 && val != 1.0) {
+		float c_multiple = 1.0 / float(in_step_amount);
+		float c_mod = fmod(val, c_multiple);
+		float c_width = in_contour_width * 0.01;
+
+		if (in_smooth_contours) {
+			float high_w = c_width * 2.0;
+			hsv_v = smoothstep(c_width, high_w, c_mod);
+			hsv_v -= smoothstep(c_multiple - high_w, c_multiple - c_width, c_mod);
+		} else {
+			if (c_mod < c_width || c_mod > c_multiple - c_width) {
+				hsv_v = 0.0;
+			}
+		}
+	}
+
+	// Step
+	if (in_flatten != 0) {
+		val = flattenize(in_step_amount, val);
+	}
+
+	color out_col;
+	if (in_color_mode == 0) {
+		// hsv
+		// float col = fmod(val + hue, 1);
+		float col = val + hue;
+		out_col = color("hsv", col, 1, hsv_v);
+	} else if (in_color_mode == 1) {
+		// heat map
+		float offset = 0.5 + degs60 + hue;
+		float col = offset + val * 0.5;
+		out_col = color("hsv", col, 1, hsv_v);
+	} else if (in_color_mode == 2) {
+		// bright burn
+		float g = 0.618033988749895;
+		float col = val * 0.569 + g + hue;
+		float s = 1.0 - val;
+
+		if (in_flatten) {
+			s = flattenize(in_step_amount, s);
+		}
+
+		out_col = color("hsv", col, s, hsv_v);
+	} else if (in_color_mode == 3) {
+		// complements
+		color start_col = color("hsv", hue, 1, hsv_v);
+		color end_col = color("hsv", 0.5 + hue, 1, hsv_v);
+		out_col = mix(start_col, end_col, val);
+	} else if (in_color_mode == 4) {
+		// analogous
+		float col = fmod(val * degs60 + hue, 1) ;
+		out_col = color("hsv", col, 1, hsv_v);
+	} else if (in_color_mode == 5) {
+		// split complementary
+		color c1 = color("hsv", hue, 1, hsv_v);
+		color c2 = color("hsv", 0.5 + degs30 + hue, 1, hsv_v);
+		color c3 = color("hsv", 0.5 - degs30 + hue, 1, hsv_v);
+		out_col = fea_mix(c1, c2, c3, val);
+	} else if (in_color_mode == 6) {
+		// triad
+		color c1 = color("hsv", hue, 1, hsv_v);
+		color c2 = color("hsv", 0.25 + degs30 + hue, 1, hsv_v);
+		color c3 = color("hsv", 0.75 - degs30 + hue, 1, hsv_v);
+		out_col = fea_mix(c1, c3, c2, val);
+	} else if (in_color_mode == 7) {
+		// tetradic
+		color c1 = color("hsv", (1 / 12.0) + hue, 1, hsv_v);
+		color c2 = color("hsv", 0.5 - degs30 + hue, 1, hsv_v);
+		color c3 = color("hsv", 0.5 + degs30 + hue, 1, hsv_v);
+		color c4 = color("hsv", 1.0 - degs30 + hue, 1, hsv_v);
+		out_col = fea_mix(c1, c4, c2, c3, val);
+	} else if (in_color_mode == 8) {
+		// square
+		color c1 = color("hsv", hue, 1, hsv_v);
+		color c2 = color("hsv", 0.25 + hue, 1, hsv_v);
+		color c3 = color("hsv", 0.5 + hue, 1, hsv_v);
+		color c4 = color("hsv", 0.75 + hue, 1, hsv_v);
+		out_col = fea_mix(c1, c3, c4, c2, val);
+	}
+
+	Out = out_col;
+}

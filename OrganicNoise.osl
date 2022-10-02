@@ -41,18 +41,6 @@ float custom_noise(noise_t noise_type, vector coord, float phase) {
 	return ret;
 }
 
-float fbm(int iterations, vector coord, float phase) {
-	float ret = 0.0;
-
-	for (int i = 1; i < iterations + 1; ++i) {
-		float size = i / float(iterations);
-		ret += noise("usimplex", coord / size, phase + size) * size;
-	}
-
-	ret /= float(iterations);
-	return ret;
-}
-
 // Returns a 3x3 matrix of noise values around
 // center coords x,y.
 matrix noise_3x3(noise_t noise_type, vector coord, float phase, vector xmove, vector ymove) {
@@ -439,7 +427,7 @@ shader OrganicNoise
 	float noise_v = 0;
 	float sample_distance = 0.05;
 	float phase = in_phase;
-	float entropy = fbm(3, coord, phase);
+	float entropy = fea_fbm(3, coord, phase);
 
 
 	if (in_perturb_phase) {
@@ -576,9 +564,7 @@ shader OrganicNoise
 
 	// Step
 	if (step_mode != 0) {
-		int inoise = int(noise_v * step_amount);
-		float val = float(inoise) / float(step_amount);
-		noise_v = fea_blend(step_mode, noise_v, val);
+		noise_v = fea_fancy_step(step_mode, step_amount, noise_v);
 	}
 
 	// Interpolate
