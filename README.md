@@ -8,6 +8,16 @@
 - Copy the `FeaOSL` folder to your new `OSL` directory.
 - You should see the shaders in your material editor drop-down on next 3dsMax launch.
 
+## Color Scheme
+A utility helper which applies various color schemes to gradient maps. Includes a flatten and countour option.
+
+<img src="doc/img/color_scheme.gif" width="49%" title="Color Scheme Demo" alt="Color Scheme Demo">
+
+## Color Threshold
+A utility helper to mask colors above or below an intensity threshold, or mask a picked color or intensity.
+
+<img src="doc/img/color_threshold.gif" width="49%" title="Color Threshold Demo" alt="Color Threshold Demo">
+
 ## Curvalicious
 Curvalicious is a fast (no raytracing) screen-space curvature shader. It outputs various maps related to curvature, edge detection and concave / convex faces.
 

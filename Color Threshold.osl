@@ -1,0 +1,89 @@
+// ColorThreshold Shader
+// ColorThreshold by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea.osl"
+
+#define color_passthrough_opts \
+		"None:0" \
+		"|Above Intensity:1" \
+		"|Below Intensity:2" \
+		"|Pick Intensity:3" \
+		"|Pick Color:4"
+
+color color_passthrough(int mode, color source, color threshold, float pick_range, color mask) {
+	color ret = source;
+	if (mode == 0) {
+		return ret;
+	}
+
+	float avg_source = fea_average(source);
+	float avg_thresh = fea_average(threshold);
+
+	if (mode == 1) {
+		ret = avg_source >= avg_thresh ? source : mask;
+	} else if (mode == 2) {
+		ret = avg_source <= avg_thresh ? source : mask;
+	} else if (mode == 3) {
+		ret = abs(avg_source - avg_thresh) < pick_range ? source : mask;
+	} else if (mode == 4) {
+		color diff = abs(source - threshold);
+		ret = diff[0] < pick_range && diff[1] < pick_range && diff[2] < pick_range ? source : mask;
+	}
+
+	return ret;
+}
+
+shader ColorThreshold
+[[
+	string help  =
+		"<h3>Color Threshold</h3>"
+		"Filter or pick colors from input. Mask the rest."
+		,
+	string label = "Color Threshold"
+]]
+(
+	int in_mode = 0
+	[[
+		string widget = "mapper",
+		string label = "Mode",
+		string options =
+			color_passthrough_opts
+			,
+		string help = "Filter mode.",
+		int connectable = 0,
+	]],
+
+	float in_pick_range = 0.02
+	[[
+		string label = "Pick Range",
+		string help = "The +/- range with which to pick intensities or colors. The higher the value, the wider the range picked.",
+		float min = 0.0,
+		float max = 0.5,
+		int connectable = 0,
+	]],
+
+	color in_source = 1.0
+	[[
+		string label = "Source",
+		string help = "The input color to filter.",
+	]],
+
+	color in_threshold = 0.0
+	[[
+		string label = "Target",
+		string help = "Either the threshold value or the target intensity/color for pick mode.\nWarning : When using the color picker in the viewport, the actual result will be shaded and usually incorrect. You can use the color picker on a material's preview in the SME graph to get a non-shaded source color.",
+	]],
+
+	color in_mask = 1.0
+	[[
+		string label = "Mask",
+		string help = "When the condition is true, the replacement color.",
+	]],
+
+	output color Out = 0
+)
+{
+	Out = color_passthrough(in_mode, in_source, in_threshold, in_pick_range, in_mask);
+}
