@@ -431,13 +431,7 @@ shader OrganicNoise
 )
 {
 	float epsilon = 0.00001;
-
-	// Make default scale a little smaller.
 	float muv_scale = uv_scale;
-	if (uvw == transform("object", P)) {
-		muv_scale = uv_scale * 10.0;
-	}
-
 	point orig_coord = uvw / muv_scale;
 	point coord = orig_coord;
 	vector grad = 0;

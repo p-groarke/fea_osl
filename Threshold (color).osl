@@ -51,7 +51,7 @@ shader ColorThreshold
 		string options =
 			color_passthrough_opts
 			,
-		string help = "Filter mode. The keywords 'all' and 'any' refer to the color components (r,g,b).",
+		string help = "Filter mode.",
 		int connectable = 0,
 	]],
 

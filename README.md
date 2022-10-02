@@ -32,6 +32,11 @@ SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacem
 
 [More details](doc/simple_ocean.md)
 
+## Threshold (color)
+A utility helper to mask colors above or below an intensity threshold, or mask a picked color or intensity.
+
+<img src="doc/img/threshold_color.gif" title="Threshold Color Demo" alt="Threshold Color Demo">
+
 
 # Build Instructions
 
