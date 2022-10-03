@@ -9,7 +9,7 @@
 - You should see the shaders in your material editor drop-down on next 3dsMax launch.
 
 ## Color Scheme
-A utility helper which applies various color schemes to gradient maps. Includes a flatten and countour option.
+A utility helper which applies various color schemes to gradient maps. Includes a flatten and contour option.
 
 <img src="doc/img/color_scheme.gif" width="49%" title="Color Scheme Demo" alt="Color Scheme Demo">
 
