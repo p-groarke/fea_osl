@@ -1,0 +1,424 @@
+// Voronoi Shader
+// Voronoi by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea.osl"
+
+// For more details on all this, see :
+// https://iquilezles.org/articles/voronoilines/
+// https://www.shadertoy.com/view/4lKGRG
+
+// TODO : move to fea.osl
+
+// float manglefloat(float f) {
+// 	// float r = 1.0 / (floor(f) / fract(f));
+// 	// return abs(sin(r));
+
+// 	int odd_mask = 0x55555555; // pattern of alternating 0 and 1
+// 	int even_mask = 0xaaaaaaaa; // pattern of alternating 1 and 0
+// 	int c = 3571495; // random uneven integer constant;
+
+// 	float f1 = abs(f);
+// 	float f2 = fract(f) * c;
+// 	int x = int(f1);
+// 	int x2 = int(f2);
+
+// 	int x_odd = x & odd_mask;
+// 	int x_even = x & even_mask;
+// 	int x2_odd = x2 & odd_mask;
+// 	int x2_even = x2 & even_mask;
+
+// 	float n1 = (x_odd + (x_even >> 1));
+// 	float n2 = ((x2_odd << 1) + x2_even);
+
+
+// 	float ret = (f1 / f2) + (n1 * n2);
+
+// 	// return fract(ret);
+// 	// return fmod(float(ret) / c, 1.0);
+
+// 	// return (sin(ret) + 1.0) * 0.5;
+// 	return fract(sin(f1) + sin(f2));
+// 	// return fract(sin(float(ret)));
+// }
+// vector fea_hash3(vector p) {
+// 	return vector(manglefloat(p[0]), manglefloat(p[1]), manglefloat(p[2]));
+// }
+
+
+
+// Hash type enum ui options.
+#define fea_hash_opts \
+		"OSL:0" \
+		"|IQ:1"
+
+// Hashes the given vector p according to dimension and with hash type.
+vector fea_hash(int dimensions, int hash_type, vector p) {
+	if (dimensions == 1) {
+		if (hash_type == 0) {
+			return fea_hash1_osl(p);
+		} else if (hash_type == 1) {
+			return fea_hash1_iq(p);
+		}
+	} else if (dimensions == 2) {
+		if (hash_type == 0) {
+			return fea_hash2_osl(p);
+		} else if (hash_type == 1) {
+			return fea_hash2_iq(p);
+		}
+	} else if (dimensions == 3) {
+		if (hash_type == 0) {
+			return fea_hash3_osl(p);
+		} else if (hash_type == 1) {
+			return fea_hash3_iq(p);
+		}
+	}
+
+	return vector(0);
+}
+
+
+// Ui for dimension options.
+#define fea_dimension_opts \
+		"1D:1" \
+		"|2D:2" \
+		"|3D:3"
+
+// Given a coordinate 'x', generates a sample set of random points
+// in the grid around the original coordinate.
+//
+// The points are in local space, relative to the input coordinate.
+// That is, out point + x == world space point.
+// And length(out point) == distance(x, random point).
+//
+// Specify the number of dimensions to compute, 1, 2 or 3.
+// Provide the hash_func enum value (see fea_hash_func_opts).
+// Provide your coordinate (dimensions will be dealt with appropriately).
+// Provide an array of at minimum size :
+// 4 -> 1d.
+// 16 -> 2d.
+// 64 -> 3d.
+void fea_make_random_points(int dimensions, int hash_type, point x, point out_points[]) {
+	int arr_len = arraylength(out_points);
+	point mcoord = x;
+	mcoord[1] = dimensions < 2 ? 0 : mcoord[1];
+	mcoord[2] = dimensions < 3 ? 0 : mcoord[2];
+
+	point abs_grid = floor(mcoord);
+	vector lcl_shade_point = fract(mcoord);
+
+	// Given a local grid coord, generate a random point local to the input coord.
+	point make_rnd_point(float i, float j, float k) {
+		// Offset to neighbour grid point.
+		vector offset = vector(i, j, k);
+
+		// Given an absolute point on our grid, returns a random direction.
+		vector rand_dir = fea_hash(dimensions, hash_type, abs_grid + offset);
+
+		// The random point, local to grid point (abs_grid).
+		point grid_rand_point = rand_dir + offset;
+
+		// A vector from our shading point to the random point.
+		// Aka, the random point local to our shading point.
+		return grid_rand_point - lcl_shade_point;
+	}
+
+	// Search around our grid point, in 1d, 2d or 3d.
+	int k_max = dimensions < 3 ? 1 : 4;
+	float k_off = dimensions < 3 ? 0.0 : 1.5;
+	int j_max = dimensions < 2 ? 1 : 4;
+	float j_off = dimensions < 2 ? 0.0 : 1.5;
+
+	for (int k = 0; k < k_max; ++k) {
+		for (int j = 0; j < j_max; ++j) {
+			for (int i = 0; i < 4; ++i) {
+				int idx = k * 16 + j * 4 + i;
+				out_points[idx] = make_rnd_point(float(i) - 1.5, float(j) - j_off, float(k) - k_off);
+			}
+		}
+	}
+}
+
+// Given random points local to the currently shaded sample,
+// returns the distance to the closest point (and its index).
+float fea_closest_distance(point rnd_pts[], int num_pts, output int out_idx) {
+	float ret = FEA_FLT_MAX;
+	for (int i = 0; i < num_pts; ++i) {
+		float d = fea_length_squared(rnd_pts[i]);
+		if (d < ret) {
+			ret = d;
+			out_idx = i;
+		}
+	}
+
+	return sqrt(ret);
+}
+
+// Given random points local to the currently shaded coordinate,
+// returns the distance to the closest border in between closeby points (voronoi).
+// Also outputs the index of the point that was used (the second closest point).
+//
+// Provide the index of the closest point in the point set.
+float fea_closest_border_distance(int closest_idx, point rnd_pts[], int num_pts, output int second_idx) {
+	point closest_pt = rnd_pts[closest_idx];
+	float ret = FEA_FLT_MAX;
+	for (int i = 0; i < num_pts; ++i) {
+		// Skip the closest point (we are looking for second closest border).
+		if (i != closest_idx) {
+			point current_pt = rnd_pts[i];
+			float dist_to_brdr = dot(0.5 * (closest_pt + current_pt), normalize(current_pt - closest_pt));
+			if (dist_to_brdr < ret) {
+				ret = dist_to_brdr;
+				second_idx = i;
+			}
+		}
+	}
+
+	return ret;
+}
+
+
+// fea_random_points return value, "random points info".
+struct fea_rpi {
+	// Distance to closest point.
+	float dist;
+
+	// Distance to closest border.
+	float dist_to_border;
+
+	// Vector from shading point to closest point.
+	vector to_point;
+
+	// Closest random point.
+	point closest_point;
+
+	// Unique id of point.
+	// color point_id;
+
+
+	// Distance to second closest point.
+	float second_dist;
+
+	// Vector from shading point to second closest point.
+	vector to_second_point;
+
+	// Second closest random point.
+	point second_point;
+
+};
+
+// Generates a sample set of random point.
+// Returns information regarding your provided coordinate
+// and the closest random point.
+fea_rpi fea_random_points(int in_3d, vector x)
+{
+	fea_rpi ret;
+	point abs_grid = floor(x);
+	vector lcl_shade_point = fract(x);
+
+	ret.dist = 8.0;
+	ret.second_dist = 8.0;
+
+	vector hashit(int in_3d, vector p) {
+		if (in_3d) {
+			return fea_hash3_iq(p);
+			// return fea_hash3_osl(p);
+		} else {
+			return fea_hash2_iq(p);
+		// return fea_hash2_osl(p);
+		}
+	}
+
+	// Given a local grid coord, generate a random point and store it in
+	// the return value appropriately.
+	void distance_to_point(float i, float j, float k) {
+		// Offset to neighbour.
+		vector offset = vector(i, j, k);
+
+		// Given an absolute point on our grid, returns a random
+		// reproducible direction (non-unit).
+		// vector rand_dir = noise("hash", abs_grid + offset);
+		// vector rand_dir = hash2_test(abs_grid + offset);
+		vector rand_dir = hashit(in_3d, abs_grid + offset);
+
+		// The random point, in local space.
+		point lcl_rand_point = rand_dir + offset;
+
+		// A vector from our shading point to the random point, local space.
+		vector lcl_to_point = lcl_rand_point - lcl_shade_point;
+
+		// Distance to random point.
+		float lcl_dist = fea_length_squared(lcl_to_point);
+
+		// Keep the shortest distance.
+		if (lcl_dist < ret.dist) {
+			ret.second_dist = ret.dist;
+			ret.dist = lcl_dist;
+
+			ret.to_second_point = ret.to_point;
+			ret.to_point = lcl_to_point;
+
+			ret.second_point = ret.closest_point;
+			ret.closest_point = lcl_rand_point + abs_grid;
+		} else if (lcl_dist < ret.second_dist) {
+			ret.second_dist = lcl_dist;
+			ret.to_second_point = lcl_to_point;
+			ret.second_point = lcl_rand_point + abs_grid;
+		}
+	}
+
+	// Search around our grid point, in 2d or 3d.
+	if (in_3d) {
+		for (float k = -1.5; k <= 1.5; ++k) {
+			for (float j = -1.5; j <= 1.5; ++j) {
+				for (float i = -1.5; i <= 1.5; ++i) {
+					distance_to_point(i, j, k);
+				}
+			}
+		}
+	} else {
+		for (float j = -1.5; j <= 1.5; ++j) {
+			for (float i = -1.5; i <= 1.5; ++i) {
+				distance_to_point(i, j, 0.0);
+			}
+		}
+	}
+
+	// Second correction pass to compute stable distance to borders.
+	ret.dist_to_border = 8.0;
+	void second_pass(float i, float j, float k) {
+		vector offset = vector(i, j, k);
+		// vector rand_dir = noise("hash", abs_grid + offset);
+		// vector rand_dir = hash2_test(abs_grid + offset);
+		vector rand_dir = hashit(in_3d, abs_grid + offset);
+		point lcl_rand_point = rand_dir + offset;
+		vector lcl_to_point = lcl_rand_point - lcl_shade_point;
+
+		if (lcl_to_point == ret.to_point) {
+			// skip the same cell
+			return;
+		}
+
+		float lcl_dist_to_border = dot(0.5 * (ret.to_point + lcl_to_point), normalize(lcl_to_point - ret.to_point));
+		if (lcl_dist_to_border < ret.dist_to_border) {
+			ret.dist_to_border = lcl_dist_to_border;
+		}
+	}
+
+	if (in_3d) {
+		for (float k = -1.5; k <= 1.5; ++k) {
+			for (float j = -1.5; j <= 1.5; ++j) {
+				for (float i = -1.5; i <= 1.5; ++i) {
+					second_pass(i, j, k);
+				}
+			}
+		}
+	} else {
+		for (float j = -1.5; j <= 1.5; ++j) {
+			for (float i = -1.5; i <= 1.5; ++i) {
+				second_pass(i, j, 0.0);
+			}
+		}
+	}
+	// return vec3( md, mr );
+
+	ret.dist = sqrt(ret.dist);
+	ret.second_dist = sqrt(ret.second_dist);
+	return ret;
+}
+
+fea_rpi fea_random_points_2d(vector x) {
+	return fea_random_points(0, x);
+}
+fea_rpi fea_random_points_3d(vector x) {
+	return fea_random_points(1, x);
+}
+
+
+
+shader Voronoi
+[[
+	string help  =
+		"<h3>Voronoi</h3>"
+		"An implementation of iq's voronoi algorithm. Includes corrections from tomkh and more bells and whistles.<br>"
+		"<b>Warning :</b> If you connect 2d UVs, disable the '3d Evaluation' option and adjust UVW Scale."
+		,
+	string label = "Voronoi"
+]]
+(
+	int in_dimensions = 3
+	[[
+		string label = "Dimensions",
+		string help = "Evaluates the functions in 1d, 2d or 3d. The higher the dimension, the heavier the shader.<br>"
+				"3d is particularly useful when rendering volumes, to eliminate seams or if your UVs contain the W component.",
+		string widget = "mapper",
+		string options =
+			fea_dimension_opts
+			,
+		int connectable = 0,
+	]],
+
+	int in_hash_type = 0
+	[[
+		string label = "Hash Function",
+		string help = "The core function used to generate the random points.",
+		string widget = "mapper",
+		string options =
+			fea_hash_opts
+			,
+		int connectable = 0,
+	]],
+
+	// FEA_SPACER(0),
+
+	float in_uvw_scale = 1.0
+	[[
+		string label = "UVW Scale",
+		string help = "Scale your UVWs up or down (or the object, if no UVWs are provided).<br>For more betterer transformations, use UVW Transform node.",
+		float min = 0.00001,
+		int connectable = 0,
+	]],
+
+	point in_uvw = transform("object", P)
+	[[
+		string label = "UVW",
+		string help = "Transformed UVW coordinates. Animate 'w' with scene time for interesting results.",
+	]],
+
+
+	output color Out = 0,
+	output vector Distance = 0
+)
+{
+	point coord = in_uvw / in_uvw_scale;
+
+	// Contains max points required.
+	point rnd_pts[64];
+	int num_pts = 0;
+
+	if (in_dimensions == 1) {
+		num_pts = 4;
+	} else if (in_dimensions == 2) {
+		num_pts = 16;
+	} else if (in_dimensions == 3) {
+		num_pts = 64;
+	}
+
+	fea_make_random_points(in_dimensions, in_hash_type, coord, rnd_pts);
+
+	int closest_idx = -1;
+	float dist = fea_closest_distance(rnd_pts, num_pts, closest_idx);
+
+	// Out = dist;
+	Out = 1.0 - dist;
+
+	int border_idx = -1;
+	float border_dist = fea_closest_border_distance(closest_idx, rnd_pts, num_pts, border_idx);
+
+	// borders (better)
+	// float d = dot(0.5 * (point_info.to_point + point_info.to_second_point), normalize(point_info.to_second_point - point_info.to_point));
+	// float d = point_info.dist_to_border;
+	Out = 1.0 - smoothstep(0.04,0.05,border_dist);
+	Out = border_dist;
+}

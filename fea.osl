@@ -5,6 +5,7 @@
 
 #define FEA_RPACK_W 50
 #define FEA_SPACER(n) int __spacer##n = 0 [[string widget = "checkBox", int connectable = 0, int widgetWidth = 1]],
+#define FEA_FLT_MAX 3.402823e+38
 
 /**
  * Conversions
@@ -32,21 +33,6 @@ vector fea_angle_to_vec(float rad) {
 /**
  * Convolutions
  */
-
-// Robert's cross convolution.
-// Very approximate gradient, but much faster.
-// Causes uv translation :(
-// x
-// | 1| 0|
-// | 0|-1|
-// y
-// | 0| 1|
-// |-1| 0|
-vector roberts_gradient(matrix m) {
-	float x = m[1][1] - m[2][2];
-	float y = m[1][2] - m[2][1];
-	return vector(x, y, 0);
-}
 
 // Sobel operator convolution.
 // Pass in a 3x3 matrix of data to convolve.
@@ -94,6 +80,52 @@ float fea_outline(matrix m) {
 	return -m[0][0] - m[0][1] - m[0][2] - m[1][0] + 8 * m[1][1] - m[1][2] - m[2][0] - m[2][1] - m[2][2];
 }
 
+
+#define fea_imp_xe(eps) vector(eps, 0.0, 0.0)
+#define fea_imp_ye(eps) vector(0.0, eps, 0.0)
+#define fea_imp_ze(eps) vector(0.0, 0.0, eps)
+
+// A simpler less expensive numerical gradient.
+// Basically Robert's Cross.
+//
+// Expected func signature :
+// float f(vector);
+#define fea_gradient_2d(x, eps, func) \
+	vector( \
+		func(x + fea_imp_xe(eps)) - func(x - fea_imp_xe(eps)), \
+		func(x + fea_imp_ye(eps)) - func(x - fea_imp_ye(eps)), \
+		0.0 \
+	) / (2.0 * eps)
+
+// A simpler less expensive numerical 3d gradient.
+// Basically Robert's Cross expanded in z.
+//
+// Expected func signature :
+// float f(vector);
+#define fea_gradient_3d(x, eps, func) \
+	vector( \
+		func(x + fea_imp_xe(eps)) - func(x - fea_imp_xe(eps)), \
+		func(x + fea_imp_ye(eps)) - func(x - fea_imp_ye(eps)), \
+		func(x + fea_imp_ze(eps)) - func(x - fea_imp_ze(eps)) \
+	) / (2.0 * eps)
+
+// Computes the distance from point x to your function.
+// That is : abs(f(x)) / abs(gradient(f(x)))
+// https://iquilezles.org/articles/distance/
+//
+// Expected func signature :
+// float f(vector);
+#define fea_distance_field_2d(x, eps, func) \
+	abs(func(x)) / length(fea_gradient_2d(x, eps, func))
+
+// Computes the distance from point x to your function.
+// That is : abs(f(x)) / abs(gradient(f(x)))
+// https://iquilezles.org/articles/distance/
+//
+// Expected func signature :
+// float f(vector);
+#define fea_distance_field_3d(x, eps, func) \
+	abs(func(x)) / length(fea_gradient_3d(x, eps, func))
 
 /**
  * Interpolation
@@ -147,9 +179,7 @@ float fea_interp(float k, float percent) {
 	return ret;
 }
 
-
-// Blend 2 floats using typical color blend modes.
-// 'bot' is base layer, 'top' is top layer.
+// fea_blend enum ui options.
 #define fea_blend_opts \
 		"None:0" \
 		"|Replace:1" \
@@ -180,6 +210,8 @@ float fea_interp(float k, float percent) {
 		/*"|Luminosity:27"*/ \
 		"|Average:28"
 
+// Blend 2 floats using typical color blend modes.
+// 'bot' is base layer, 'top' is top layer.
 float fea_blend(int blend_type, float bot, float top) {
 	// http://www.simplefilter.de/en/basics/mixmods.html
 
@@ -310,15 +342,6 @@ float fea_fancy_step(int step_mode, int step_amount, float in_val) {
 /**
  * Math Utils
  */
- float fea_fract(float in) {
-	return in - floor(in);
- }
- color fea_fract(color in) {
-	return in - floor(in);
- }
- vector fea_fract(vector in) {
-	return in - floor(in);
- }
 
 // Clouds (aka Fractal Brownian Motion).
 float fea_fbm(int iterations, vector coord, float phase) {
@@ -332,3 +355,66 @@ float fea_fbm(int iterations, vector coord, float phase) {
 	ret /= float(iterations);
 	return ret;
 }
+
+// Returns squared magnitude.
+float fea_length_squared(vector x) {
+	return dot(x, x);
+}
+
+
+/**
+ * glsl compatability
+ */
+vector vec2(float x, float y) {
+	return vector(x, y, 0.0);
+}
+
+float fract(float in) {
+	return in - floor(in);
+}
+// color fract(color in) {
+// 	return in - floor(in);
+// }
+vector fract(vector in) {
+	return in - floor(in);
+}
+
+/**
+ * Hashes
+ */
+vector fea_hash1_iq(vector p) {
+	return vector(fract(sin(p[0]) * 43758.5453), 0.0, 0.0);
+}
+vector fea_hash2_iq(vector p) {
+	vector q = vector(
+		dot(p, vector(127.1, 311.7, 0.0)),
+		dot(p, vector(269.5, 183.3, 0.0)),
+		0.0
+	);
+	return fract(sin(q) * 43758.5453);
+}
+vector fea_hash3_iq(vector p) {
+	vector q = vector(
+		dot(p, vector(127.1, 311.7, 0.0)),
+		dot(p, vector(269.5, 183.3, 0.0)),
+		dot(p, vector(419.2, 371.9, 0.0))
+	);
+	return fract(sin(q) * 43758.5453);
+}
+
+vector fea_hash1_osl(vector p) {
+	vector q = noise("hash", p);
+	q[1] = 0.0;
+	q[2] = 0.0;
+	return q;
+}
+vector fea_hash2_osl(vector p) {
+	vector q = noise("hash", p);
+	q[2] = 0.0;
+	return q;
+}
+vector fea_hash3_osl(vector p) {
+	return noise("hash", p);
+}
+
+

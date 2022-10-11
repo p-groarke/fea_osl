@@ -1,0 +1,88 @@
+// Playground for whatever Shader
+// Playground for whatever by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea.osl"
+
+
+shader Playground
+[[
+	string help  =
+		"Sandbox"
+		,
+	string label = "Playground"
+]]
+(
+	float in_phase = 0
+	[[
+		string label = "Phase",
+		string help = "The 4th coordinate of the noise. You can animate with scene time for movement. "
+				"For interesting results and 'edge distortion', feed another noise to this parameter.",
+		string packName = "Phase / Perturb",
+	]],
+
+	float in_uvw_scale = 1.0
+	[[
+		string label = "UVW Scale",
+		string help = "Scale your UVWs up or down. For more betterer transformations, use UVW Transform node.",
+		float min = 0.00001,
+		int connectable = 0,
+	]],
+
+	point in_uvw = transform("object", P)
+	[[
+		string label = "UVW",
+		string help = "Transformed UVW coordinates. Animate 'w' with scene time for interesting results.",
+	]],
+
+	output vector Out = 0
+)
+{
+	point coord = in_uvw / in_uvw_scale;
+	// Curl Noise test
+	// float epsilon = 0.0001;
+	// point coord = in_uvw / in_uv_scale;
+
+	// vector x_move = vector(epsilon, 0.0, 0.0);
+	// vector y_move = vector(0.0, epsilon, 0.0);
+
+	// float x1 = noise("usimplex", coord + x_move, in_phase);
+	// float x2 = noise("usimplex", coord - x_move, in_phase);
+	// float x_avg = (x1 - x2) / (2.0 * epsilon);
+
+	// float y1 = noise("usimplex", coord + y_move, in_phase);
+	// float y2 = noise("usimplex", coord - y_move, in_phase);
+	// float y_avg = (y1 - y2) / (2.0 * epsilon);
+
+	// // Rotate the uvs.
+
+	// // Out = coord + vector(y_avg, -x_avg, 0.0);
+	// // Out = coord + vector(y_avg + in_phase, -(x_avg + in_phase), 0.0);
+
+	// // Our func.
+	// // float test2 = (
+	// // 	float r = length(x);
+	// // 	float a = atan2(x[1], x[0]);
+	// // 	float test1 = r - 1.0 + 0.5 * sin(3.0 * a + 2.0 * r * r);
+	// // 	return test1;
+	// // );
+
+
+	// iq distance field test
+	float f(vector x) {
+		float r = length(x);
+		float a = atan2(x[1], x[0]);
+		float ret = r - 1.0 + 0.5 * sin(3.0 * a + 2.0 * r * r);
+		return ret;
+	}
+
+	// mag(f(x)) / mag(grad(f(x))) == abs(f(x)) / mag(grad(f(x)))
+	float test1 = fea_distance_field_2d(coord * 0.1, 0.1, f);
+
+	// Thresholding the function.
+	float eps = 0.01;
+	test1 = smoothstep(eps, eps * 1.5, test1);
+	Out = test1;
+
+}
