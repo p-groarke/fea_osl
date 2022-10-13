@@ -11,43 +11,6 @@
 
 // TODO : move to fea.osl
 
-// float manglefloat(float f) {
-// 	// float r = 1.0 / (floor(f) / fract(f));
-// 	// return abs(sin(r));
-
-// 	int odd_mask = 0x55555555; // pattern of alternating 0 and 1
-// 	int even_mask = 0xaaaaaaaa; // pattern of alternating 1 and 0
-// 	int c = 3571495; // random uneven integer constant;
-
-// 	float f1 = abs(f);
-// 	float f2 = fract(f) * c;
-// 	int x = int(f1);
-// 	int x2 = int(f2);
-
-// 	int x_odd = x & odd_mask;
-// 	int x_even = x & even_mask;
-// 	int x2_odd = x2 & odd_mask;
-// 	int x2_even = x2 & even_mask;
-
-// 	float n1 = (x_odd + (x_even >> 1));
-// 	float n2 = ((x2_odd << 1) + x2_even);
-
-
-// 	float ret = (f1 / f2) + (n1 * n2);
-
-// 	// return fract(ret);
-// 	// return fmod(float(ret) / c, 1.0);
-
-// 	// return (sin(ret) + 1.0) * 0.5;
-// 	return fract(sin(f1) + sin(f2));
-// 	// return fract(sin(float(ret)));
-// }
-// vector fea_hash3(vector p) {
-// 	return vector(manglefloat(p[0]), manglefloat(p[1]), manglefloat(p[2]));
-// }
-
-
-
 // Hash type enum ui options.
 #define fea_hash_opts \
 		"OSL:0" \
@@ -153,6 +116,49 @@ float fea_closest_distance(point rnd_pts[], int num_pts, output int out_idx) {
 	}
 
 	return sqrt(ret);
+}
+
+// fea_blended_distance options.
+#define fea_blended_distance_opts \
+		"None:0" \
+		"|Power:1" \
+		"|Exponent:2"
+
+
+// Given random points local to the currently shaded sample,
+// returns the blended distance from the points.
+// That is, all points contribute to the distance, weighted according to
+// provided options.
+// https://iquilezles.org/articles/smoothvoronoi/
+float fea_blended_distance(int blending_opt, float falloff, point rnd_pts[], int num_pts) {
+	// TODO : Fixup falloff better according to input.
+	float f = falloff * 4.0;
+	if (blending_opt == 2) {
+		f += 2.0;
+	}
+
+	float ret = 0.0;
+
+	for (int i = 0; i < num_pts; ++i) {
+		float d = fea_length_squared(rnd_pts[i]);
+
+		if (blending_opt == 1) {
+			// power
+			ret += 1.0 / pow(d, f);
+		} else if (blending_opt == 2) {
+			// exponent
+			ret += exp2(-f * sqrt(d));
+		}
+	}
+
+	if (blending_opt == 1) {
+		// power
+		return pow(1.0 / ret, 1.0 / (f * 2.0));
+	} else if (blending_opt == 2) {
+		return -(1.0 / f) * log2(ret);
+	}
+
+	return 0.0;
 }
 
 // Given random points local to the currently shaded coordinate,
@@ -328,14 +334,6 @@ fea_rpi fea_random_points(int in_3d, vector x)
 	return ret;
 }
 
-fea_rpi fea_random_points_2d(vector x) {
-	return fea_random_points(0, x);
-}
-fea_rpi fea_random_points_3d(vector x) {
-	return fea_random_points(1, x);
-}
-
-
 
 shader Voronoi
 [[
@@ -370,7 +368,97 @@ shader Voronoi
 		int connectable = 0,
 	]],
 
+	int in_distance_type = 0
+	[[
+		string label = "Distance Function",
+		string help = "The distance function used to compute distance to points.",
+		string widget = "mapper",
+		string options =
+			"Euler:0"
+			"|Manhattan:1"
+			,
+		int connectable = 0,
+	]],
+
 	// FEA_SPACER(0),
+
+	int in_cell_style = 0
+	[[
+		string label = "Cell Style",
+		string help = "The style of the cell interior.",
+		string widget = "mapper",
+		string options =
+			"Organic:0"
+			"|Bubbles:1"
+			"|Chiseled:2"
+			,
+		int connectable = 0,
+	]],
+
+	int in_cell_blend = 0
+	[[
+		string label = "Cell Blending",
+		string help = "Various options to compute the distance of one cell to another.",
+		string widget = "mapper",
+		string options =
+			fea_blended_distance_opts
+			,
+		int connectable = 0,
+		string packName = "Cell Blending / Falloff",
+	]],
+
+	float in_cell_blend_falloff = 8.0
+	[[
+		string label = "Cell Blending Falloff",
+		string help = "The strength of the cell blending.",
+		string widget = "mapper",
+		string options =
+			"Hard:0"
+			fea_blended_distance_opts
+			,
+		float min = 0.0,
+		int connectable = 0,
+		string packName = "Cell Blending / Falloff",
+		int widgetWidth = FEA_RPACK_W,
+	]],
+
+	// FEA_SPACER(1)
+
+	int in_draw_borders = 0
+	[[
+		string label = "Draw Borders",
+		string help = "Render solid voronoi cell borders.",
+		string widget = "checkBox",
+		int connectable = 0,
+	]],
+
+	float in_border_width = 1.0
+	[[
+		string label = "Border Width",
+		string help = "The cell border width.",
+		float min = 0.0,
+	]],
+
+	float in_border_feather = 0.01
+	[[
+		string label = "Border Feather",
+		string help = "The cell border fade amount.",
+		float min = 0.001,
+	]],
+
+	color in_border_color = color(1)
+	[[
+		string label = "Border Color",
+		string help = "The cell border color.",
+	]],
+
+	int in_clamp_output = 1
+	[[
+		string label = "Clamp Output",
+		string help = "Clamps the output value between [0..1].",
+		string widget = "checkBox",
+		int connectable = 0,
+	]],
 
 	float in_uvw_scale = 1.0
 	[[
@@ -391,34 +479,82 @@ shader Voronoi
 	output vector Distance = 0
 )
 {
+
+/*
+	feedback
+	1. blender doc of voronoi node (baseline, truly understand) cool stuff : write a color, use as function to drive
+	2. additional parameter, a percentage of will i use a feature point or not.
+		aka, 20% of the points
+
+	border distortion in 3d (check iq stuff)
+	smoothmin (to make border "rounded")
+	modulate hash vector ( exposed)
+	expose phase (animate points like iq)
+	blur borders (check iq article)
+	perdurbe distance of borders (makes border edges ragged)
+	fractal of full function
+	instead of doing distance, use blob calculation (metablobs!)
+	bomb implicits (sphere == blobs, super quadratic, super ellipsoid)
+		bomb random rotation
+
+	explore not f2 - f1
+	other map slot to do domain distortion
+		distorter map
+
+	crazy : gradient blur?
+
+*/
+
 	point coord = in_uvw / in_uvw_scale;
+
+	// color col = fea_hash3_zurich(coord);
+	// Out = color(col[0]);
+	// return;
 
 	// Contains max points required.
 	point rnd_pts[64];
-	int num_pts = 0;
-
-	if (in_dimensions == 1) {
-		num_pts = 4;
-	} else if (in_dimensions == 2) {
-		num_pts = 16;
-	} else if (in_dimensions == 3) {
-		num_pts = 64;
-	}
+	int num_pts = int(pow(4, in_dimensions));
 
 	fea_make_random_points(in_dimensions, in_hash_type, coord, rnd_pts);
 
 	int closest_idx = -1;
 	float dist = fea_closest_distance(rnd_pts, num_pts, closest_idx);
 
-	// Out = dist;
-	Out = 1.0 - dist;
-
 	int border_idx = -1;
 	float border_dist = fea_closest_border_distance(closest_idx, rnd_pts, num_pts, border_idx);
+
+	// Blending
+	if (in_cell_blend != 0) {
+		dist = fea_blended_distance(in_cell_blend, in_cell_blend_falloff, rnd_pts, num_pts);
+	}
+
+	// Internal cell
+	{
+		if (in_cell_style == 0) {
+			// organic
+			Out = dist;
+		} else if (in_cell_style == 1) {
+			// bubbles
+			Out = 1.0 - dist;
+		} else if (in_cell_style == 2) {
+			Out = border_dist;
+		}
+	}
+
+	// Borders
+	if (in_draw_borders) {
+		float w = in_border_width * 0.1;
+		float eps = in_border_feather * 0.1;
+		float p = 1.0 - smoothstep(w, w + eps, border_dist);
+		Out = mix(Out, in_border_color, p);
+	}
 
 	// borders (better)
 	// float d = dot(0.5 * (point_info.to_point + point_info.to_second_point), normalize(point_info.to_second_point - point_info.to_point));
 	// float d = point_info.dist_to_border;
-	Out = 1.0 - smoothstep(0.04,0.05,border_dist);
-	Out = border_dist;
+	// Out = 1.0 - smoothstep(0.04, 0.05, border_dist);
+
+	if (in_clamp_output) {
+		Out = clamp(Out, color(0), color(1));
+	}
 }
