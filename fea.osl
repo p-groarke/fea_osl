@@ -139,6 +139,15 @@ float fea_closest_multiple(float val, float multiple) {
 	return floor(val / multiple) * multiple;
 }
 
+// Floor up to decimal.
+vector fea_floor_to(vector val, float decimal_mul) {
+	return vector (
+			floor(val[0] * decimal_mul) / decimal_mul,
+			floor(val[1] * decimal_mul) / decimal_mul,
+			floor(val[2] * decimal_mul) / decimal_mul
+	);
+}
+
 // Given the 3 colors and a precentage,
 // mix between them (1/3 per color).
 color fea_mix(color c1, color c2, color c3, float p) {
@@ -361,6 +370,21 @@ float fea_length_squared(vector x) {
 	return dot(x, x);
 }
 
+// sin from 0 to 1
+float fea_usin(float x) {
+	return (sin(x) + 1.0) * 0.5;
+}
+vector fea_usin(vector x) {
+	return (sin(x) + 1.0) * 0.5;
+}
+
+// cos from 0 to 1
+float fea_ucos(float x) {
+	return (cos(x) + 1.0) * 0.5;
+}
+vector fea_ucos(vector x) {
+	return (cos(x) + 1.0) * 0.5;
+}
 
 /**
  * glsl compatability
@@ -382,39 +406,19 @@ vector fract(vector in) {
 /**
  * Hashes
  */
-vector fea_hash1_iq(vector p) {
-	return vector(fract(sin(p[0]) * 43758.5453), 0.0, 0.0);
-}
-vector fea_hash2_iq(vector p) {
-	vector q = vector(
-		dot(p, vector(127.1, 311.7, 0.0)),
-		dot(p, vector(269.5, 183.3, 0.0)),
-		0.0
-	);
-	return fract(sin(q) * 43758.5453);
-}
-vector fea_hash3_iq(vector p) {
-	vector q = vector(
-		dot(p, vector(127.1, 311.7, 0.0)),
-		dot(p, vector(269.5, 183.3, 0.0)),
-		dot(p, vector(419.2, 371.9, 0.0))
-	);
-	return fract(sin(q) * 43758.5453);
-}
-
-vector fea_hash1_osl(vector p) {
-	vector q = noise("hash", p);
+vector fea_hash1_osl(float seed, vector p) {
+	vector q = noise("hash", p, seed);
 	q[1] = 0.0;
 	q[2] = 0.0;
 	return q;
 }
-vector fea_hash2_osl(vector p) {
-	vector q = noise("hash", p);
+vector fea_hash2_osl(float seed, vector p) {
+	vector q = noise("hash", p, seed);
 	q[2] = 0.0;
 	return q;
 }
-vector fea_hash3_osl(vector p) {
-	return noise("hash", p);
+vector fea_hash3_osl(float seed, vector p) {
+	return noise("hash", p, seed);
 }
 
 
