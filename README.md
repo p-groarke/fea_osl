@@ -31,7 +31,7 @@ Utility helper that outputs distance to picked node's center.
 ## Organic Noise
 Organic looking noise generator. Caustics, fleshy bubbles and other abstract noises.
 
-<img src="doc/img/organic_noise.png" width="49%" title="Organic Noise" alt="Shader Example">
+<img src="doc/img/organic_noise_presets_changsoo.png" width="49%" title="Organic Noise" alt="Shader Example">
 
 [More details](doc/organic_noise.md)
 

@@ -140,6 +140,9 @@ float fea_closest_multiple(float val, float multiple) {
 }
 
 // Floor up to decimal.
+float fea_floor_to(float val, float decimal_mul) {
+	return floor(val * decimal_mul) / decimal_mul;
+}
 vector fea_floor_to(vector val, float decimal_mul) {
 	return vector (
 			floor(val[0] * decimal_mul) / decimal_mul,
@@ -419,6 +422,29 @@ vector fea_hash2_osl(float seed, vector p) {
 }
 vector fea_hash3_osl(float seed, vector p) {
 	return noise("hash", p, seed);
+}
+
+vector fea_hash1_iq(float seed, vector p) {
+	return vector(fract(sin(p[0] + seed) * 43758.5453), 0.0, 0.0);
+}
+vector fea_hash2_iq(float seed, vector p) {
+	vector q = vector(
+		dot(p, vector(127.1, 311.7, 0.0)),
+		dot(p, vector(269.5, 183.3, 0.0)),
+		0.0
+	);
+	q[0] += seed;
+	q[1] += seed;
+	return fract(sin(q) * 43758.5453);
+}
+vector fea_hash3_iq(float seed, vector p) {
+	vector q = vector(
+		dot(p, vector(127.1, 311.7, 0.0)),
+		dot(p, vector(269.5, 183.3, 0.0)),
+		dot(p, vector(419.2, 371.9, 0.0))
+	);
+
+	return fract(sin(q + seed) * 43758.5453);
 }
 
 

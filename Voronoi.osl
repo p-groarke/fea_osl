@@ -8,35 +8,42 @@
 // For more details on all this, see :
 // https://iquilezles.org/articles/voronoilines/
 // https://www.shadertoy.com/view/4lKGRG
+// https://iquilezles.org/articles/smin/
+// https://iquilezles.org/articles/smoothvoronoi/
 
 // TODO : move to fea.osl
-vector fea_hash1_iq(float seed, vector p) {
-	return vector(fract(sin(p[0] + seed) * 43758.5453), 0.0, 0.0);
-}
-vector fea_hash2_iq(float seed, vector p) {
-	vector q = vector(
-		dot(p, vector(127.1, 311.7, 0.0)),
-		dot(p, vector(269.5, 183.3, 0.0)),
-		0.0
-	);
-	return fract(sin(q + seed) * 43758.5453);
-}
-vector fea_hash3_iq(float seed, vector p) {
-	vector q = vector(
-		dot(p, vector(127.1, 311.7, 0.0)),
-		dot(p, vector(269.5, 183.3, 0.0)),
-		dot(p, vector(419.2, 371.9, 0.0))
-	);
 
-	return fract(sin(q + seed) * 43758.5453);
-}
+// // exponential smooth min (k=32)
+// float smin( float a, float b, float k )
+// {
+//     float res = exp2( -k*a ) + exp2( -k*b );
+//     return -log2( res )/k;
+// }
+// // power smooth min (k=8)
+// float smin( float a, float b, float k )
+// {
+//     a = pow( a, k ); b = pow( b, k );
+//     return pow( (a*b)/(a+b), 1.0/k );
+// }
+// // root smooth min (k=0.01)
+// float smin( float a, float b, float k )
+// {
+//     float h = a-b;
+//     return 0.5*( (a+b) - sqrt(h*h+k) );
+// }
+// // polynomial smooth min
+// float sminCubic( float a, float b, float k )
+// {
+//     float h = max( k-abs(a-b), 0.0 )/k;
+//     return min( a, b ) - h*h*h*k*(1.0/6.0);
+// }
+
 
 
 // Hash type enum ui options.
 #define fea_hash_opts \
 		"OSL:0" \
 		"|IQ:1"
-
 
 // Hashes the given vector p according to dimension and with hash type.
 vector fea_hash(int dimensions, int hash_type, float seed, vector p) {
@@ -64,7 +71,6 @@ vector fea_hash(int dimensions, int hash_type, float seed, vector p) {
 vector fea_hash(int dimensions, int hash_type, vector p) {
 	return fea_hash(dimensions, hash_type, 0.0, p);
 }
-
 
 // Ui for dimension options.
 #define fea_dimension_opts \
@@ -144,18 +150,19 @@ void fea_make_random_points(int dimensions, int hash_type, float seed, point x, 
 		"None:0" \
 		"|Circles:1" \
 		"|Slosh:2" \
-		"|Test:3"
+		"|Back and Forth:3" \
+		"|Test:4"
 
 // Animates an array of points (in local space to the shading coordinate).
 // Offers various animations.
 // Provide the hash type, phase, shading coordinate.
-void fea_animate_points(int dimensions, int anim_opt, int hash_type, float phase, point coord, output point pts[], int num_pts) {
+void fea_animate_points(int dimensions, int anim_opt, float anim_strength, int hash_type, float phase, point coord, output point pts[], int num_pts) {
 	if (anim_opt == 0) {
 		return;
 	}
 
 	// Phase in radians.
-	float phase_rad = fea_per_to_rad(phase) * 0.5;
+	float phase_rad = fea_per_to_rad(phase);
 
 	for (int i = 0; i < num_pts; ++i) {
 		point lcl_p = pts[i];
@@ -163,7 +170,7 @@ void fea_animate_points(int dimensions, int anim_opt, int hash_type, float phase
 		// All our computations must be evaluated in global space.
 		point p = lcl_p + coord;
 		point stable_p = fea_floor_to(p, 100.0);
-		vector rand_dir = fea_hash(dimensions, hash_type, stable_p) * 0.25;
+		vector rand_dir = fea_hash(dimensions, hash_type, stable_p) * 0.25 * anim_strength;
 
 		if (anim_opt == 1) {
 			// circles
@@ -176,22 +183,16 @@ void fea_animate_points(int dimensions, int anim_opt, int hash_type, float phase
 			// slosh
 			p = rotate(p, phase_rad, p + rand_dir, point(0));
 		} else if (anim_opt == 3) {
+			// back and forth
+			p += rand_dir * sin(phase_rad);
+		} else if (anim_opt == 4) {
 			// test
-			p[0] += fea_usin(phase_rad + rand_dir[0]) * 0.5;
-			p[1] += fea_usin(phase_rad + rand_dir[1]) * 0.5;
-			p[2] += fea_usin(phase_rad + rand_dir[2]) * 0.5;
-			// torus
-			// p[0] = (0.1 + 0.2 * cos(p[1])) * cos(p[0]);
-			// p[1] = (0.1 + 0.2 * cos(p[1])) * sin(p[0]);
-			// p[2] = 0.2 * sin(p[1]);
 		}
-
 
 		// Make local again.
 		pts[i] = p - coord;
 	}
 }
-
 
 
 // https://en.wikipedia.org/wiki/Taxicab_geometry
@@ -253,14 +254,14 @@ float fea_distance_test(point p1, point p2) {
 // Tested but not applicable : Canberra, Bray Curtis,
 #define fea_distance_opts \
 		"Default (Euclidean Squared):0" \
-		"|Euclidean:1" \
+		/* "|Euclidean:1" */ \
 		"|Manhattan:2" \
 		"|Chebyshev:3" \
 		"|Mahalanobis:4" \
 		"|Test:5"
 
 // fea_voronoi blending options.
-#define fea_distance_blend_opts \
+#define fea_distance_smooth_opts \
 		"None:0" \
 		"|Metaballs:1" \
 		"|Exponent:2" \
@@ -270,7 +271,24 @@ float fea_distance_test(point p1, point p2) {
 // Given random points local to the currently shaded sample,
 // returns the distance to the closest point (and its index).
 // Aka, voronoi.
-float fea_voronoi(int distance_opt, int blend_opt, float blend_falloff, point pts[], int num_pts, output int out_idx) {
+float fea_voronoi(int distance_opt, int blend_opt, float blend_strength, point pts[], int num_pts, output int out_idx) {
+	// First, massage falloff according to dimensions and other settings,
+	// so it is a reasonable value.
+	float falloff = blend_strength;
+	if (blend_opt == 1) {
+		// metaballs
+		if (falloff < 0.000001) {
+			falloff = 0.000001;
+		}
+	} else if (blend_opt == 2) {
+		// exponent
+		falloff = 64.0 - (falloff * 64.0);
+	} else if (blend_opt == 3) {
+		// power
+		falloff = 16.0 - (falloff * 16.0);
+	}
+
+
 	float min_dist = FEA_FLT_MAX;
 	float blended_dist = 0.0;
 
@@ -314,43 +332,26 @@ float fea_voronoi(int distance_opt, int blend_opt, float blend_falloff, point pt
 			}
 		} else if (blend_opt == 2) {
 			// exponent
-			blended_dist += exp2(-blend_falloff * sqrt(d));
+			blended_dist += exp2(-falloff * d);
 		} else if (blend_opt == 3) {
 			// power
-			blended_dist += 1.0 / pow(d, blend_falloff);
+			blended_dist += 1.0 / pow(d, falloff);
 		}
 	}
 
 	// Finally, return the expected value.
 	if (blend_opt == 1) {
-		// return (blended_dist / float(num_pts)) < blend_falloff;
-		return (blended_dist / float(num_pts)) / blend_falloff;// < blend_falloff;
+		// metaballs
+		return (blended_dist / float(num_pts)) * falloff;
 	} else if (blend_opt == 2) {
-
+		// exponent
+		return -(1.0 / falloff) * log2(blended_dist);
 	} else if (blend_opt == 3) {
-
+		// power
+		return pow(1.0 / blended_dist, 1.0 / falloff);
 	}
 
-	if (distance_opt == 1) {
-		return sqrt(min_dist);
-	}
 	return min_dist;
-
-}
-
-// Returns the distance to the closest point (from the provided points in local space).
-// Also outputs the point's index.
-float fea_closest_distance(point pts[], int num_pts, output int out_idx) {
-	float min_dist = FEA_FLT_MAX;
-	for (int i = 0; i < num_pts; ++i) {
-		point current_pt = pts[i];
-		float d = fea_length_squared(current_pt);
-		if (d < min_dist) {
-			min_dist = d;
-			out_idx = i;
-		}
-	}
-	return sqrt(min_dist);
 }
 
 // Given random points local to the currently shaded coordinate,
@@ -381,8 +382,7 @@ shader Voronoi
 [[
 	string help  =
 		"<h3>Voronoi</h3>"
-		"An implementation of iq's voronoi algorithm. Includes corrections from tomkh and more bells and whistles.<br>"
-		"<b>Warning :</b> If you connect 2d UVs, disable the '3d Evaluation' option and adjust UVW Scale."
+		"A voronoi / cell noise implementation."
 		,
 	string label = "Voronoi"
 ]]
@@ -409,7 +409,7 @@ shader Voronoi
 			fea_hash_opts
 			,
 		int connectable = 0,
-		// string packName = "Hash Function / Seed",
+		string packName = "Hash Function / Seed",
 	]],
 
 	float in_seed = 0.0
@@ -417,14 +417,15 @@ shader Voronoi
 		string label = "Seed",
 		string help = "A seed provided to the hash function.",
 		int connectable = 0,
-		// string packName = "Hash Function / Seed",
+		string packName = "Hash Function / Seed",
 	]],
 
 
 	int in_distance_type = 0
 	[[
 		string label = "Distance Metric",
-		string help = "The distance function used to compute distance to points.",
+		string help = "The distance function used to compute distance to points."
+			"<br>Note, the euclidean is squared due to sqrt precision issues. You may take square root of the distance output if required.",
 		string widget = "mapper",
 		string options =
 			fea_distance_opts
@@ -448,36 +449,62 @@ shader Voronoi
 		int connectable = 0,
 	]],
 
-	int in_cell_blend_type = 0
+	int in_cell_smooth_type = 0
 	[[
-		string label = "Cell Blending",
+		string label = "Smoothing",
 		string help = "Various options to compute the distance of one cell to another.",
 		string widget = "mapper",
 		string options =
-			fea_distance_blend_opts
+			fea_distance_smooth_opts
 			,
 		int connectable = 0,
-		string packName = "Cell Blending / Falloff",
+		string packName = "Smoothing / Strength",
 	]],
 
-	float in_cell_blend_falloff = 8.0
+	float in_cell_smooth_strength = 0.5
 	[[
-		string label = "Cell Blending Falloff",
+		string label = "Smoothing Strength",
 		string help = "The strength of the cell blending.",
 		float min = 0.0,
-		int connectable = 0,
-		string packName = "Cell Blending / Falloff",
+		float max = 1.0,
+		// int connectable = 0,
+		string packName = "Smoothing / Strength",
 		int widgetWidth = FEA_RPACK_W,
 	]],
 
-	int in_clamp_output = 1
+	int in_threshold_type = 0
 	[[
-		string label = "Clamp Output",
-		string help = "Clamps the output value between [0..1].",
-		string widget = "checkBox",
+		string label = "Threshold",
+		string help = "Thresholds the function using various schemes.",
+		string widget = "mapper",
+		string options =
+			"None:0"
+			"|Threshold:1"
+			"|Slice:2"
+			"|Contours:3"
+			,
 		int connectable = 0,
 	]],
 
+	float in_threshold_val = 0.5
+	[[
+		string label = "Threshold Value",
+		string help = "The value of the threshold 'slice'.",
+		float min = 0.0,
+		float max = 1.0,
+		// int connectable = 0,
+		string packName = "Threshold Value / Feather",
+	]],
+
+	float in_threshold_feather = 0.1
+	[[
+		string label = "Threshold Feather",
+		string help = "The edge smoothness of the threshold 'slice'.",
+		float min = 0.0,
+		float max = 1.0,
+		// int connectable = 0,
+		string packName = "Threshold Value / Feather",
+	]],
 
 	// FEA_SPACER(1)
 
@@ -518,12 +545,33 @@ shader Voronoi
 			fea_anim_pts_opts
 			,
 		int connectable = 0,
+		string packName = "Animation / Strength",
 	]],
 
-	float in_phase = 0.0
+	float in_animation_strength = 1.0
 	[[
-		string label = "Phase",
-		string help = "Used to animate or as a seed for all random functions.",
+		string label = "Animation Strength",
+		string help = "The range of animation. Note, for technical reasons, the range must remain quite limited.",
+		float min = 0.0,
+		float max = 1.0,
+		int connectable = 0,
+		string packName = "Animation / Strength",
+		int widgetWidth = FEA_RPACK_W,
+	]],
+
+	float in_time = 0.0
+	[[
+		string label = "Time (s)",
+		string help = "Used to animate, animation loops at 1.",
+		int timeValue = 1,
+	]],
+
+	int in_clamp_output = 1
+	[[
+		string label = "Clamp Output",
+		string help = "Clamps the output value between [0..1].",
+		string widget = "checkBox",
+		int connectable = 0,
 	]],
 
 	float in_uvw_scale = 1.0
@@ -583,11 +631,11 @@ shader Voronoi
 	fea_make_random_points(in_dimensions, in_hash_type, in_seed, coord, rnd_pts);
 
 	// Animate them.
-	fea_animate_points(in_dimensions, in_animation_type, in_hash_type, in_phase, coord, rnd_pts, num_pts);
+	fea_animate_points(in_dimensions, in_animation_type, in_animation_strength, in_hash_type, in_time, coord, rnd_pts, num_pts);
 
 	// Find the closest distance to a point. Aka, voronoi.
 	int closest_idx = -1;
-	float dist = fea_voronoi(in_distance_type, in_cell_blend_type, in_cell_blend_falloff, rnd_pts, num_pts, closest_idx);
+	float dist = fea_voronoi(in_distance_type, in_cell_smooth_type, in_cell_smooth_strength, rnd_pts, num_pts, closest_idx);
 
 	// Find the distance to the closest and second closest cell border.
 	int border_idx = -1;
@@ -596,14 +644,44 @@ shader Voronoi
 	// Internal cell style
 	if (in_cell_style == 0) {
 		// organic
-		Out = dist;
+		// nothing to do
+
+		// float lines = fea_usin((coord[0] + coord[1]) * 10.0 + dist * 1.0);
+		// dist = lines;
+		// dist += lines;
 	} else if (in_cell_style == 1) {
 		// bubbles
-		Out = 1.0 - dist;
+		dist = 1.0 - dist;
 	} else if (in_cell_style == 2) {
 		// chiseled
-		Out = border_dist;
-	} else if (in_cell_style == 3) {
+		dist = border_dist;
+	}
+
+	if (in_threshold_type == 1) {
+		// threshold
+		dist = smoothstep(in_threshold_val - in_threshold_feather, in_threshold_val + in_threshold_feather, dist);
+	} else if (in_threshold_type == 2) {
+		// slice
+		float diff = abs(in_threshold_val - dist);
+		// diff = fea_interp(-10.0, diff);
+		dist = 1.0 - smoothstep(0.0, in_threshold_feather, diff);
+	} else if (in_threshold_type == 3) {
+		// contours
+		dist = clamp(dist, 0.0, 1.0);
+		if (dist != 0.0 && dist != 1.0) {
+			float d = fmod(dist, in_threshold_val);
+			float f = in_threshold_feather * 0.1;
+			dist = smoothstep(in_threshold_val - f, in_threshold_val, d);
+			dist += 1.0 - smoothstep(0.0, f, d);
+		} else {
+			dist = 0.0;
+		}
+	}
+
+	Out = dist;
+
+	// TODO : color will be a seperate thing
+	if (in_cell_style == 3) {
 		// color, TODO
 		// temp, make global coord
 		Out = (coord + rnd_pts[closest_idx]) * 0.1;
