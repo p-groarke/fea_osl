@@ -448,3 +448,19 @@ vector fea_hash3_iq(float seed, vector p) {
 }
 
 
+/**
+ * Algorithms & Typical coding
+ */
+
+#define fea_runtime_array(struct_name, type, max_size) \
+	struct struct_name { \
+		type data[max_size]; \
+		int size; \
+	}; \
+	\
+	void fea_erase(output struct_name arr, int i) { \
+		if (i < arr.size) { \
+			arr.data[i] = arr.data[arr.size - 1]; \
+			arr.size -= 1; \
+		} \
+	}
