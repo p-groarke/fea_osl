@@ -451,15 +451,39 @@ vector fea_hash3_iq(float seed, vector p) {
 /**
  * Algorithms & Typical coding
  */
-#define fea_runtime_array(struct_name, type, max_size) \
-	struct struct_name { \
-		type data[max_size]; \
-		int size; \
-	}; \
-	\
-	void fea_erase(output struct_name arr, int i) { \
-		if (i < arr.size) { \
-			arr.data[i] = arr.data[arr.size - 1]; \
-			arr.size -= 1; \
-		} \
+
+#define fea_swap(type, v1, v2) \
+{ \
+	type temp = v1; \
+	v1 = v2; \
+	v2 = temp; \
+}
+
+// #define fea_erase(arr, size, i) \
+// if (i < size) { \
+// 	arr[i] = arr[size - 1]; \
+// 	--size; \
+// }
+
+void fea_erase(output float data[], output int size, int i) {
+	if (i < size) {
+		data[i] = data[size - 1];
+		--size;
 	}
+}
+void fea_erase(output point data[], output int size, int i) {
+	if (i < size) {
+		data[i] = data[size - 1];
+		--size;
+	}
+}
+
+#define fea_runtime_array(struct_name, type, max_size) \
+struct struct_name { \
+	type data[max_size]; \
+	int size; \
+}; \
+\
+void fea_erase(output struct_name arr, int i) { \
+	fea_erase(arr.data, arr.size, i); \
+}
