@@ -1,0 +1,51 @@
+// fea_swizzle_vec2 osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+#include <vector2.h>
+
+#ifndef fea_x
+#define fea_x(val) val.x
+#endif
+#ifndef fea_y
+#define fea_y(val) val.y
+#endif
+#ifndef fea_z
+#define fea_z(val) val.z
+#endif
+#ifndef fea_w
+#define fea_w(val) val.w
+#endif
+
+#define fea_xx(val) \
+	vector2(fea_x(val), fea_x(val))
+#define fea_xy(val) \
+	vector2(fea_x(val), fea_y(val))
+#define fea_xz(val) \
+	vector2(fea_x(val), fea_z(val))
+#define fea_xw(val) \
+	vector2(fea_x(val), fea_w(val))
+#define fea_yx(val) \
+	vector2(fea_y(val), fea_x(val))
+#define fea_yy(val) \
+	vector2(fea_y(val), fea_y(val))
+#define fea_yz(val) \
+	vector2(fea_y(val), fea_z(val))
+#define fea_yw(val) \
+	vector2(fea_y(val), fea_w(val))
+#define fea_zx(val) \
+	vector2(fea_z(val), fea_x(val))
+#define fea_zy(val) \
+	vector2(fea_z(val), fea_y(val))
+#define fea_zz(val) \
+	vector2(fea_z(val), fea_z(val))
+#define fea_zw(val) \
+	vector2(fea_z(val), fea_w(val))
+#define fea_wx(val) \
+	vector2(fea_w(val), fea_x(val))
+#define fea_wy(val) \
+	vector2(fea_w(val), fea_y(val))
+#define fea_wz(val) \
+	vector2(fea_w(val), fea_z(val))
+#define fea_ww(val) \
+	vector2(fea_w(val), fea_w(val))
