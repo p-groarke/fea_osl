@@ -6,6 +6,11 @@
 #include <vector4.h>
 #include <matrix33.h>
 
+// Maybe not
+// #define vec2 vector2
+// #define vec3 vector
+// #define vec4 vector4
+
 vector2 make_vector2(float v) {
 	return vector2(v, v);
 }
@@ -23,10 +28,6 @@ vector make_vector(float x, vector2 y) {
 vector4 make_vector4(float v) {
 	return vector4(v, v, v, v);
 }
-
-// #define vec2 vector2
-// #define vec3 vector
-// #define vec4 vector4
 
 float fract(float in) {
 	return in - floor(in);
