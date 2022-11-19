@@ -6,6 +6,13 @@
 #include <vector4.h>
 #include <matrix33.h>
 
+vector2 make_vector2(float v) {
+	return vector2(v, v);
+}
+
+vector make_vector(vector2 x) {
+	return vector(x.x, x.y, 0);
+}
 vector make_vector(vector2 x, float y) {
 	return vector(x.x, x.y, y);
 }

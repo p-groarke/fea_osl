@@ -16,7 +16,6 @@
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea_glsl_compat.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea_swizzle_vec2.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea_swizzle_vec3.osl"
-// #include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea_swizzle_vec4.osl"
 
 
 // Permutation polynomial for the hash value
@@ -34,12 +33,11 @@ vector4 permute(vector4 i) {
 // second order analytical derivatives.
 // "vector x" is the point (x,y,z) to evaluate
 // "vector period" is the desired periods along x,y,z, up to 289.
-// (If Perlin's grid is used, multiples of 3 up to 288 are allowed.)
 // "float alpha" is the rotation (in radians) for the swirling gradients.
 // The "float" return value is the noise value n,
 // the "out vector gradient" argument returns the x,y,z 1st order derivatives,
 // and "out vector dg, out vector dg2" return the 2nd order derivatives, with
-// dg = (d2n/dx2, d2ndy2, d2n/dz2) dg2 = (d2n/dxy, d2n/dyz, d2n/dxz).
+// dg = (d2n/dx2, d2n/dy2, d2n/dz2) dg2 = (d2n/dxy, d2n/dyz, d2n/dxz).
 //
 // The function executes 15% faster if alpha is dynamically constant == 0.0
 // across all fragments being executed in parallel.
@@ -55,46 +53,27 @@ vector4 permute(vector4 i) {
 // Not using "dg" and "dg2" speeds up the function by 15-20%. Using
 // none of "gradient", "dg" and "dg2" speeds up the function by 25-30%.
 //
-float psrddnoise(vector x, vector period, float alpha, output vector gradient,
-	output vector dg, output vector dg2)
-{
+float fea_tiling_simplex(vector x, vector period, float alpha,
+		output vector gradient, output vector dg, output vector dg2) {
 
-#ifndef PERLINGRID
 	// Transformation matrices for the axis-aligned simplex grid
-	// matrix33 M = matrix33(
-	// 	0.0, 1.0, 1.0,
-	// 	1.0, 0.0, 1.0,
-	// 	1.0, 1.0, 0.0
-	// );
 	matrix M = make_matrix_from_cm(
 		0.0, 1.0, 1.0,
 		1.0, 0.0, 1.0,
 		1.0, 1.0, 0.0
 	);
 
-	// matrix33 Mi = matrix33(
-	// 	-0.5, 0.5, 0.5,
-	// 	0.5,-0.5, 0.5,
-	// 	0.5, 0.5,-0.5
-	// );
 	matrix Mi = make_matrix_from_cm(
 		-0.5, 0.5, 0.5,
 		0.5,-0.5, 0.5,
 		0.5, 0.5,-0.5
 	);
-#endif
 
 	vector uvw;
 
 	// Transform to simplex space (tetrahedral grid)
-#ifndef PERLINGRID
 	// Use matrix multiplication, let the compiler optimise
 	uvw = transform(M, x);
-#else
-	// Optimised transformation to uvw (slightly faster than
-	// the equivalent matrix multiplication on most platforms)
-	uvw = x + dot(x, vector(1.0/3.0));
-#endif
 
 
 	// Determine which simplex we're in, i0 is the "base corner"
@@ -120,18 +99,10 @@ float psrddnoise(vector x, vector period, float alpha, output vector gradient,
 	vector v0, v1, v2, v3;
 
 	// Transform the corners back to texture space
-#ifndef PERLINGRID
 	v0 = transform(Mi, i0);
 	v1 = transform(Mi, i1);
 	v2 = transform(Mi, i2);
 	v3 = transform(Mi, i3);
-#else
-	// Optimised transformation (mostly slightly faster than a matrix)
-	v0 = i0 - dot(i0, vector(1.0/6.0));
-	v1 = i1 - dot(i1, vector(1.0/6.0));
-	v2 = i2 - dot(i2, vector(1.0/6.0));
-	v3 = i3 - dot(i3, vector(1.0/6.0));
-#endif
 
 	// Compute vectors to each of the simplex corners
 	vector x0 = x - v0;
@@ -152,22 +123,11 @@ float psrddnoise(vector x, vector period, float alpha, output vector gradient,
 		if(period.z > 0.0) vz = mod(vz, period.z);
 
 		// Transform back
-#ifndef PERLINGRID
 		i0 = transform(M, vector(vx.x, vy.x, vz.x));
 		i1 = transform(M, vector(vx.y, vy.y, vz.y));
 		i2 = transform(M, vector(vx.z, vy.z, vz.z));
 		i3 = transform(M, vector(vx.w, vy.w, vz.w));
-#else
-		v0 = vector(vx.x, vy.x, vz.x);
-		v1 = vector(vx.y, vy.y, vz.y);
-		v2 = vector(vx.z, vy.z, vz.z);
-		v3 = vector(vx.w, vy.w, vz.w);
-		// Transform wrapped coordinates back to uvw
-		i0 = v0 + dot(v0, vector(1.0/3.0));
-		i1 = v1 + dot(v1, vector(1.0/3.0));
-		i2 = v2 + dot(v2, vector(1.0/3.0));
-		i3 = v3 + dot(v3, vector(1.0/3.0));
-#endif
+
 		// Fix rounding errors
 		i0 = floor(i0 + 0.5);
 		i1 = floor(i1 + 0.5);
@@ -193,52 +153,51 @@ float psrddnoise(vector x, vector period, float alpha, output vector gradient,
 	vector4 gx, gy, gz;
 
 	// Rotate gradients by angle alpha around a pseudo-random ortogonal axis
-#ifdef FASTROTATION
+// #ifdef FASTROTATION
 	// Fast algorithm, but without dynamic shortcut for alpha = 0
-	vector4 qx = St;         // q' = norm ( cross(s, n) )  on the equator
+	vector4 qx = St; // q' = norm ( cross(s, n) )  on the equator
 	vector4 qy = -Ct;
-	vector4 qz = vector4(0.0);
+	vector4 qz = make_vector4(0.0);
 
-	vector4 px =  sz * qy;   // p' = cross(q, s)
+	vector4 px =  sz * qy; // p' = cross(q, s)
 	vector4 py = -sz * qx;
 	vector4 pz = sz_prime;
 
-	psi += alpha;         // psi and alpha in the same plane
+	psi += alpha; // psi and alpha in the same plane
 	vector4 Sa = sin(psi);
 	vector4 Ca = cos(psi);
 
 	gx = Ca * px + Sa * qx;
 	gy = Ca * py + Sa * qy;
 	gz = Ca * pz + Sa * qz;
-#else
-	// Slightly slower algorithm, but with g = s for alpha = 0, and a
-	// strong conditional speedup for alpha = 0 across all fragments
-	if(alpha != 0.0) {
-		vector4 Sp = sin(psi);	        // q' from psi on equator
-		vector4 Cp = cos(psi);
+// #else
+// 	// Slightly slower algorithm, but with g = s for alpha = 0, and a
+// 	// strong conditional speedup for alpha = 0 across all fragments
+// 	if(alpha != 0.0) {
+// 			vector4 Sp = sin(psi); // q' from psi on equator
+// 			vector4 Cp = cos(psi);
 
-		vector4 px = Ct * sz_prime;	   // px = sx
-		vector4 py = St * sz_prime;	   // py = sy
-		vector4 pz = sz;
+// 			vector4 px = Ct * sz_prime; // px = sx
+// 			vector4 py = St * sz_prime; // py = sy
+// 			vector4 pz = sz;
 
-		vector4 Ctp = St*Sp - Ct*Cp;	  // q = (rotate( cross(s,n), dot(s,n))(q')
-		vector4 qx = mix( Ctp*St, Sp, sz);
-		vector4 qy = mix(-Ctp*Ct, Cp, sz);
-		vector4 qz = -(py*Cp + px*Sp);
+// 			vector4 Ctp = St*Sp - Ct*Cp; // q = (rotate( cross(s,n), dot(s,n))(q')
+// 			vector4 qx = mix( Ctp*St, Sp, sz);
+// 			vector4 qy = mix(-Ctp*Ct, Cp, sz);
+// 			vector4 qz = -(py*Cp + px*Sp);
 
-		vector4 Sa = make_vector4(sin(alpha));	     // psi and alpha in different planes
-		vector4 Ca = make_vector4(cos(alpha));
+// 			vector4 Sa = make_vector4(sin(alpha)); // psi and alpha in different planes
+// 			vector4 Ca = make_vector4(cos(alpha));
 
-		gx = Ca * px + Sa * qx;
-		gy = Ca * py + Sa * qy;
-		gz = Ca * pz + Sa * qz;
-	}
-	else {
-		gx = Ct * sz_prime;	// alpha = 0, use s directly as gradient
-		gy = St * sz_prime;
-		gz = sz;
-	}
-#endif
+// 			gx = Ca * px + Sa * qx;
+// 			gy = Ca * py + Sa * qy;
+// 			gz = Ca * pz + Sa * qz;
+// 	} else {
+// 			gx = Ct * sz_prime; // alpha = 0, use s directly as gradient
+// 			gy = St * sz_prime;
+// 			gz = sz;
+// 	}
+// #endif
 
 	// Reorganize for dot products below
 	vector g0 = vector(gx.x, gy.x, gz.x);
@@ -283,6 +242,86 @@ float psrddnoise(vector x, vector period, float alpha, output vector gradient,
 	return 39.5 * n;
 }
 
+float fea_utiling_simplex(point x, vector period, float alpha,
+		output vector gradient, output vector dg, output vector dg2) {
+	float ret = fea_tiling_simplex(x, period, alpha, gradient, dg, dg2);
+	return (ret + 1.0) * 0.5;
+}
+
+struct test {
+	float val;
+};
+
+test __operator__add__(test a, test b) {
+	return test(a.val + b.val);
+}
+
+float fea_tiling_fbm(int iterations, point coord, vector period, float phase,
+		output vector gradient,	output vector dg, output vector dg2) {
+	if (iterations < 1) {
+		return 0.0;
+	}
+
+	gradient = 0;
+	dg = 0;
+	dg2 = 0;
+
+	float ret = 0.0;
+	// point mcoord = coord;
+	// vector mperiod = period;
+	// float mphase = phase;
+	float amp = 0.5;
+	float lacunarity = 2.0;
+	float freq = 1.0;
+	float norm = amp;
+
+	vector mgradient = 0;
+	vector mdg = 0;
+	vector mdg2 = 0;
+
+	for (int i = 0; i < iterations; ++i) {
+		ret += fea_utiling_simplex(coord * freq, period * freq, phase, mgradient, mdg, mdg2) * amp;
+
+		gradient += mgradient * amp;
+		dg += mdg * amp;
+		dg2 += mdg2 * amp;
+
+		freq *= lacunarity;
+		// mcoord *= freq;
+		// mperiod *= freq;
+		amp *= 0.5;
+		norm += amp;
+	}
+
+	gradient = gradient / norm;
+	dg = dg / norm;
+	dg2 = dg2 / norm;
+	return ret / norm;
+}
+
+// Fractalizes functions.
+// Calls your function with frequency to evaluate.
+// Your function must return a value that has the mul, add and divide operators
+// defined.
+// The answer is stored in out_value.
+// WARNING : out_value MUST be initialized to 0.
+#define fea_fractalize(iterations, lacunarity, func, out_value) \
+{ \
+	if (iterations >= 1) { \
+		float amp = 0.5; \
+		float inv_lacun = 1.0 / lacunarity; \
+		float freq = 1.0; \
+		float norm = amp; \
+		for (int i = 0; i < iterations; ++i) { \
+			out_value += func(freq) * amp; \
+			freq *= lacunarity; \
+			amp *= inv_lacun; \
+			norm += amp; \
+		} \
+		out_value /= norm; \
+	} \
+}
+
 
 shader TilingSimplex
 [[
@@ -293,17 +332,24 @@ shader TilingSimplex
 	string label = "Tiling Simplex"
 ]]
 (
-	vector period = 0.0
+	int in_fbm_octaves = 3
 	[[
-		string label = "Period",
-		string help = "",
-		float max = 200.0,
+		string label = "Octaves",
+		string help = "How many octaves used for the fractal brownian motion (clouds).",
+		int min = 1,
 	]],
 
-	float rotation = 0.0
+	vector in_tiling = 0.0
 	[[
-		string label = "Rotation",
-		string help = "",
+		string label = "Tiling",
+		string help = "These are the x, y, z periods, used to tile the noise.",
+		float max = 289.0,
+	]],
+
+	float in_phase = 0.0
+	[[
+		string label = "Phase",
+		string help = "Used to animate the noise. Rotates the underlying points.",
 	]],
 
 	float in_uv_scale = 1.0
@@ -326,15 +372,33 @@ shader TilingSimplex
 	output color DG2 = 0
 )
 {
+	test t1 = test(0.5);
+	test t2 = test(0.5);
+	t1 += t2;
+	// test t3 = t1 + t2;
+	Out = color(t1.val);
+	return;
+
 	point coord = in_uvw / in_uv_scale;
+	vector tiling = in_tiling;
 
 	vector gradient;
 	vector dg;
 	vector dg2;
 
-	Out = (psrddnoise(coord, vector(period), rotation, gradient, dg, dg2) + 1.0) * 0.5;
+	// Out = (psrddnoise(coord, vector(period), rotation, gradient, dg, dg2) + 1.0) * 0.5;
 
+	// float val = 0.0;
+	// fea_fbm(val, upsrddnoise, coord, vector(period), rotation, gradient, dg, dg2));
+
+	color col = fea_tiling_fbm(in_fbm_octaves, coord, tiling, in_phase, gradient, dg, dg2);
+	// Out = color(1);
+
+	// Out = fea_utiling_simplex(coord, tiling, in_phase, gradient, dg, dg2);
+
+	Out = col;
 	Gradient = gradient;
 	DG = dg;
 	DG2 = dg2;
+
 }
