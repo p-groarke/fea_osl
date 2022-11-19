@@ -35,6 +35,13 @@ parseIncludePath s = do
 	-- assert (length wrds == 2) wrds
 	tail (init (last wrds))
 
+readInclude :: String -> IO String
+readInclude l = do
+	let path = last (words l)
+	if "\"" `isInfixOf` path
+	then readFile (parseIncludePath l)
+	else return l
+
 {- Impure -}
 getFeaVer :: IO String
 getFeaVer = do
@@ -52,8 +59,8 @@ replaceInclude :: String -> IO String
 replaceInclude contents = do
 	f_lines <- mapM
 			(\l ->
-				if (isInfixOf "#include" l)
-				then readFile (parseIncludePath l)
+				if "#include" `isInfixOf` l
+				then readInclude l
 				else return l
 			)
 			(lines contents)
