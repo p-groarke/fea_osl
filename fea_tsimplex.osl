@@ -5,13 +5,89 @@
 
 // Paper :
 // https://jcgt.org/published/0011/01/02/
+#define fea_tsimplex_osl 1
+#include <vector2.h>
+#include <vector4.h>
 
+// Headers re-implemented here to eliminate include recursion
+// and improve portability.
+#ifndef fea_glsl_compat_osl
+vector make_vector(vector2 x, float y) {
+	return vector(x.x, x.y, y);
+}
+vector make_vector(float x, vector2 y) {
+	return vector(x, y.x, y.y);
+}
 
-// #include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea_glsl_compat.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea_swizzle_vec2.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\fea_swizzle_vec3.osl"
+vector4 make_vector4(float v) {
+	return vector4(v, v, v, v);
+}
 
+vector fract(vector in) {
+	return in - floor(in);
+}
+
+vector4 mod(vector4 x, float y) {
+	return vector4(mod(x.x, y), mod(x.y, y), mod(x.z, y), mod(x.w, y));
+}
+
+vector greaterThan(vector x, vector y) {
+	vector ret = vector(0);
+	for (int i = 0; i < 3; ++i) {
+		ret[i] = float(x[i] > y[i]);
+	}
+	return ret;
+}
+
+// Since OSL doesn't have a bool vector,
+// the floats are interpreted as :
+// Anything other than 0.0 is true.
+int any(vector x) {
+	int ret = 0;
+	for (int i = 0; i < 3; ++i) {
+		ret |= x[i] != 0.0;
+	}
+	return ret;
+}
+
+// Makes an OSL row-major matrix from a GLSL column-major matrix.
+matrix make_matrix_from_cm(float m00, float m01, float m02,
+		float m10, float m11, float m12,
+		float m20, float m21, float m22) {
+	return matrix(
+		m00, m10, m20, 0,
+		m01, m11, m21, 0,
+		m02, m12, m22, 0,
+		0, 0, 0, 1
+	);
+}
+#endif // fea_glsl_compat
+
+#ifndef fea_x
+#define fea_x(val) val.x
+#endif
+#ifndef fea_y
+#define fea_y(val) val.y
+#endif
+#ifndef fea_z
+#define fea_z(val) val.z
+#endif
+#ifndef fea_xy
+#define fea_xy(val) \
+	vector2(fea_x(val), fea_y(val))
+#endif
+#ifndef fea_xyx
+#define fea_xyx(val) \
+	vector(fea_x(val), fea_y(val), fea_x(val))
+#endif
+#ifndef fea_yzx
+#define fea_yzx(val) \
+	vector(fea_y(val), fea_z(val), fea_x(val))
+#endif
+#ifndef fea_yzz
+#define fea_yzz(val) \
+	vector(fea_y(val), fea_z(val), fea_z(val))
+#endif
 
 // The return values of fea_tsimplex
 struct fea_tsimplex_ret {

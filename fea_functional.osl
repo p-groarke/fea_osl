@@ -1,0 +1,29 @@
+// fea_functional osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#define fea_functional_osl 1
+
+// Fractalizes functions.
+// Calls your function with frequency to evaluate.
+// Your function must return a type that has the following operators defined :
+// - add(value, value)
+// - multiply(value, float)
+// - divide(value, float)
+// The answer is stored in out_value.
+// WARNING : out_value MUST be initialized to 0.
+#define fea_fractalize(iterations, lacunarity, func, out_value) \
+{ \
+	if (iterations >= 1) { \
+		float amp = 0.5; \
+		float inv_lacun = 1.0 / lacunarity; \
+		float freq = 1.0; \
+		float norm = amp; \
+		for (int i = 0; i < iterations; ++i) { \
+			out_value += func(freq) * amp; \
+			freq *= lacunarity; \
+			amp *= inv_lacun; \
+			norm += amp; \
+		} \
+		out_value /= norm; \
+	} \
+}

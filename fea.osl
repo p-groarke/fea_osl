@@ -1,7 +1,7 @@
 // fea osl libraries by Philippe Groarke
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
-
+#define fea_osl 1
 
 #define FEA_RPACK_W 50
 #define FEA_SPACER(n) int __spacer##n = 0 [[string widget = "checkBox", int connectable = 0, int widgetWidth = 1]],

@@ -1,7 +1,7 @@
 // fea_swizzle_vec2 osl libraries by Philippe Groarke
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
-
+#define fea_swizzle_vec2_osl 1
 #include <vector2.h>
 
 #ifndef fea_x
