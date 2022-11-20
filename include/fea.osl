@@ -1,0 +1,209 @@
+// fea osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_osl
+#define fea_osl 1
+
+#define FEA_RPACK_W 50
+#define FEA_SPACER(n) int __spacer##n = 0 [[string widget = "checkBox", int connectable = 0, int widgetWidth = 1]],
+#define FEA_FLT_MAX 3.402823e+38
+
+/**
+ * Conversions
+ */
+
+// Converts a precentage to radian.
+// Expects percent 0.0 to 1.0.
+float fea_per_to_rad(float percent) {
+	return percent * M_2PI;
+}
+
+// Converts a radian to percentage.
+// Returns percent 0.0 to 1.0.
+float fea_rad_to_per(float rad) {
+	return rad * 0.15915494309189498;
+}
+
+// Given a radian angle, returns a 2d vector pointing
+// in that direction.
+vector fea_angle_to_vec(float rad) {
+	return vector(cos(rad), sin(rad), 0);
+}
+
+
+/**
+ * Convolutions
+ */
+
+// Sobel operator convolution.
+// Pass in a 3x3 matrix of data to convolve.
+// x
+// |-1| 0| 1|
+// |-2| 0| 2|
+// |-1| 0| 1|
+// y
+// |-1|-2|-1|
+// | 0| 0| 0|
+// | 1| 2| 1|
+vector fea_sobel_gradient(matrix m) {
+	float x = -m[0][0] + m[0][2] - 2 * m[1][0] + 2 * m[1][2]
+			- m[2][0] + m[2][2];
+
+	float y = -m[0][0] - 2 * m[0][1] - m[0][2]
+			+ m[2][0] + 2 * m[2][1] + m[2][2];
+
+	return vector(x, y, 0);
+}
+
+// Sharpen convolution.
+// Pass in a 3x3 matrix of data to convolve.
+float fea_sharpen(matrix m) {
+	return -m[0][1] - m[1][0] + 5 * m[1][1] - m[1][2] - m[2][1];
+}
+
+// Blur convolution.
+// Pass in a 3x3 matrix of data to convolve.
+float fea_blur(matrix m) {
+	return 0.0625 * (m[0][0] + m[0][2] + m[2][0] + m[2][2])
+			+ 0.125 * (m[0][1] + m[1][0] + m[1][2] + m[2][1])
+			+ 0.25 * m[1][1];
+}
+
+// Emboss convolution.
+// Pass in a 3x3 matrix of data to convolve.
+float fea_emboss(matrix m) {
+	return -2 * m[0][0] - m[0][1] - m[1][0] + m[1][1] + m[1][2] + m[2][1] + 2 * m[2][2];
+}
+
+// Outline convolution.
+// Pass in a 3x3 matrix of data to convolve.
+float fea_outline(matrix m) {
+	return -m[0][0] - m[0][1] - m[0][2] - m[1][0] + 8 * m[1][1] - m[1][2] - m[2][0] - m[2][1] - m[2][2];
+}
+
+
+/**
+ * Interpolation
+ */
+
+// Given a value val, returns the closest multiple.
+float fea_closest_multiple(float val, float multiple) {
+	if (multiple == 0.0) {
+		return 0.0;
+	}
+	return floor(val / multiple) * multiple;
+}
+
+// Floor up to decimal.
+float fea_floor_to(float val, float decimal_mul) {
+	return floor(val * decimal_mul) / decimal_mul;
+}
+vector fea_floor_to(vector val, float decimal_mul) {
+	return vector (
+			floor(val[0] * decimal_mul) / decimal_mul,
+			floor(val[1] * decimal_mul) / decimal_mul,
+			floor(val[2] * decimal_mul) / decimal_mul
+	);
+}
+
+// Play with k,
+// https://www.desmos.com/calculator/og836nvwmx
+// k > 0, exponential
+// k == 0, linear
+// k < 0, logarithmic
+float fea_interp(float k, float percent) {
+	float ret = 0.0;
+	float epsilon = 0.0001;
+	if (fabs(k) < epsilon) {
+		// Actual k = 0 == 0 always. Just do linear interp.
+		ret = percent;
+	} else {
+		ret = (exp(k * percent) - 1.0) / (exp(k) - 1.0);
+	}
+	return ret;
+}
+
+float fea_average(vector in) {
+	return (in[0] + in[1] + in[2]) / 3.0;
+}
+
+
+/**
+ * Math Utils
+ */
+
+// Clouds (aka Fractal Brownian Motion).
+float fea_fbm(int iterations, vector coord, float phase) {
+	float ret = 0.0;
+
+	for (int i = 1; i < iterations + 1; ++i) {
+		float size = i / float(iterations);
+		ret += noise("usimplex", coord / size, phase + size) * size;
+	}
+
+	ret /= float(iterations);
+	return ret;
+}
+
+// Returns squared magnitude.
+float fea_length_squared(vector x) {
+	return dot(x, x);
+}
+
+// sin from 0 to 1
+float fea_usin(float x) {
+	return (sin(x) + 1.0) * 0.5;
+}
+vector fea_usin(vector x) {
+	return (sin(x) + 1.0) * 0.5;
+}
+
+// cos from 0 to 1
+float fea_ucos(float x) {
+	return (cos(x) + 1.0) * 0.5;
+}
+vector fea_ucos(vector x) {
+	return (cos(x) + 1.0) * 0.5;
+}
+
+
+/**
+ * Algorithms & Typical coding
+ */
+
+#define fea_swap(type, v1, v2) \
+{ \
+	type temp = v1; \
+	v1 = v2; \
+	v2 = temp; \
+}
+
+// #define fea_erase(arr, size, i) \
+// if (i < size) { \
+// 	arr[i] = arr[size - 1]; \
+// 	--size; \
+// }
+
+void fea_erase(output float data[], output int size, int i) {
+	if (i < size) {
+		data[i] = data[size - 1];
+		--size;
+	}
+}
+void fea_erase(output point data[], output int size, int i) {
+	if (i < size) {
+		data[i] = data[size - 1];
+		--size;
+	}
+}
+
+#define fea_runtime_array(struct_name, type, max_size) \
+struct struct_name { \
+	type data[max_size]; \
+	int size; \
+}; \
+\
+void fea_erase(output struct_name arr, int i) { \
+	fea_erase(arr.data, arr.size, i); \
+}
+#endif // fea_osl

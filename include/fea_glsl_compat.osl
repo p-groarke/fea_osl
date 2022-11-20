@@ -1,0 +1,100 @@
+// fea_glsl_compat osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_glsl_compat_osl
+#define fea_glsl_compat_osl 1
+
+#include <vector2.h>
+#include <vector4.h>
+
+// Maybe not
+// #define vec2 vector2
+// #define vec3 vector
+// #define vec4 vector4
+
+vector2 make_vector2(float v) {
+	return vector2(v, v);
+}
+
+vector make_vector(vector2 x) {
+	return vector(x.x, x.y, 0);
+}
+vector make_vector(vector2 x, float y) {
+	return vector(x.x, x.y, y);
+}
+vector make_vector(float x, vector2 y) {
+	return vector(x, y.x, y.y);
+}
+
+vector4 make_vector4(float v) {
+	return vector4(v, v, v, v);
+}
+
+float fract(float in) {
+	return in - floor(in);
+}
+vector2 fract(vector2 in) {
+	return in - floor(in);
+}
+vector fract(vector in) {
+	return in - floor(in);
+}
+vector4 fract(vector4 in) {
+	return in - floor(in);
+}
+
+vector2 mod(vector2 x, float y) {
+	return vector2(mod(x.x, y), mod(x.y, y));
+}
+// vector2 mod(vector2 x, vector2 y) {
+// 	return vector2(mod(x.x, y.x), mod(x.y, y.y));
+// }
+
+vector4 mod(vector4 x, float y) {
+	return vector4(mod(x.x, y), mod(x.y, y), mod(x.z, y), mod(x.w, y));
+}
+vector4 mod(vector4 x, vector4 y) {
+	return vector4(mod(x.x, y.x), mod(x.y, y.y), mod(x.z, y.z), mod(x.w, y.w));
+}
+
+vector4 mix(vector4 x, vector4 y, vector4 a) {
+	return vector4(
+		mix(x.x, y.x, a.x),
+		mix(x.y, y.y, a.y),
+		mix(x.z, y.z, a.z),
+		mix(x.w, y.w, a.w)
+	);
+}
+
+vector greaterThan(vector x, vector y) {
+	vector ret = vector(0);
+	for (int i = 0; i < 3; ++i) {
+		ret[i] = float(x[i] > y[i]);
+	}
+	return ret;
+}
+
+// Since OSL doesn't have a bool vector,
+// the floats are interpreted as :
+// Anything other than 0.0 is true.
+int any(vector x) {
+	int ret = 0;
+	for (int i = 0; i < 3; ++i) {
+		ret |= x[i] != 0.0;
+	}
+	return ret;
+}
+
+// Makes an OSL row-major matrix from a GLSL column-major matrix.
+matrix make_matrix_from_cm(float m00, float m01, float m02,
+		float m10, float m11, float m12,
+		float m20, float m21, float m22) {
+	return matrix(
+		m00, m10, m20, 0,
+		m01, m11, m21, 0,
+		m02, m12, m22, 0,
+		0, 0, 0, 1
+	);
+}
+
+#endif // fea_glsl_compat_osl

@@ -1,0 +1,78 @@
+// fea_functional osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_functional_osl
+#define fea_functional_osl 1
+
+#define fea_imp_xe(eps) vector(eps, 0.0, 0.0)
+#define fea_imp_ye(eps) vector(0.0, eps, 0.0)
+#define fea_imp_ze(eps) vector(0.0, 0.0, eps)
+
+// A simpler less expensive numerical gradient.
+// Basically Robert's Cross.
+//
+// Expected func signature :
+// float f(vector);
+#define fea_gradient_2d(x, eps, func) \
+	vector( \
+		func(x + fea_imp_xe(eps)) - func(x - fea_imp_xe(eps)), \
+		func(x + fea_imp_ye(eps)) - func(x - fea_imp_ye(eps)), \
+		0.0 \
+	) / (2.0 * eps)
+
+// A simpler less expensive numerical 3d gradient.
+// Basically Robert's Cross expanded in z.
+//
+// Expected func signature :
+// float f(vector);
+#define fea_gradient_3d(x, eps, func) \
+	vector( \
+		func(x + fea_imp_xe(eps)) - func(x - fea_imp_xe(eps)), \
+		func(x + fea_imp_ye(eps)) - func(x - fea_imp_ye(eps)), \
+		func(x + fea_imp_ze(eps)) - func(x - fea_imp_ze(eps)) \
+	) / (2.0 * eps)
+
+// Computes the distance from point x to your function.
+// That is : abs(f(x)) / abs(gradient(f(x)))
+// https://iquilezles.org/articles/distance/
+//
+// Expected func signature :
+// float f(vector);
+#define fea_distance_field_2d(x, eps, func) \
+	abs(func(x)) / length(fea_gradient_2d(x, eps, func))
+
+// Computes the distance from point x to your function.
+// That is : abs(f(x)) / abs(gradient(f(x)))
+// https://iquilezles.org/articles/distance/
+//
+// Expected func signature :
+// float f(vector);
+#define fea_distance_field_3d(x, eps, func) \
+	abs(func(x)) / length(fea_gradient_3d(x, eps, func))
+
+// Fractalizes functions.
+// Calls your function with frequency to evaluate.
+// Your function must return a type that has the following operators defined :
+// - add(value, value)
+// - multiply(value, float)
+// - divide(value, float)
+// The answer is stored in out_value.
+// WARNING : out_value MUST be initialized to 0.
+#define fea_fractalize(iterations, lacunarity, func, out_value) \
+{ \
+	if (iterations >= 1) { \
+		float amp = 0.5; \
+		float inv_lacun = 1.0 / lacunarity; \
+		float freq = 1.0; \
+		float norm = amp; \
+		for (int i = 0; i < iterations; ++i) { \
+			out_value += func(freq) * amp; \
+			freq *= lacunarity; \
+			amp *= inv_lacun; \
+			norm += amp; \
+		} \
+		out_value /= norm; \
+	} \
+}
+
+#endif // fea_functional_osl
