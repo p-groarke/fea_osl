@@ -1,0 +1,89 @@
+// fea_hash osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_hash_osl
+#define fea_hash_osl 1
+
+#ifndef fea_glsl_compat_osl
+float fract(float in) {
+	return in - floor(in);
+}
+vector fract(vector in) {
+	return in - floor(in);
+}
+#endif
+
+vector fea_hash1_osl(float seed, vector p) {
+	vector q = noise("hash", p, seed);
+	q[1] = 0.0;
+	q[2] = 0.0;
+	return q;
+}
+vector fea_hash2_osl(float seed, vector p) {
+	vector q = noise("hash", p, seed);
+	q[2] = 0.0;
+	return q;
+}
+vector fea_hash3_osl(float seed, vector p) {
+	return noise("hash", p, seed);
+}
+
+vector fea_hash1_iq(float seed, vector p) {
+	return vector(fract(sin(p[0] + seed) * 43758.5453), 0.0, 0.0);
+}
+vector fea_hash2_iq(float seed, vector p) {
+	vector q = vector(
+		dot(p, vector(127.1, 311.7, 0.0)),
+		dot(p, vector(269.5, 183.3, 0.0)),
+		0.0
+	);
+	q[0] += seed;
+	q[1] += seed;
+	return fract(sin(q) * 43758.5453);
+}
+vector fea_hash3_iq(float seed, vector p) {
+	vector q = vector(
+		dot(p, vector(127.1, 311.7, 0.0)),
+		dot(p, vector(269.5, 183.3, 0.0)),
+		dot(p, vector(419.2, 371.9, 0.0))
+	);
+
+	return fract(sin(q + seed) * 43758.5453);
+}
+
+// Hash type enum ui options.
+#define fea_hash_opts \
+		"OSL:0" \
+		"|IQ:1"
+
+// Hashes the given vector p according to dimension and with hash type.
+vector fea_hash(int dimensions, int hash_type, float seed, vector p) {
+	if (dimensions == 1) {
+		if (hash_type == 0) {
+			return fea_hash1_osl(seed, p);
+		} else if (hash_type == 1) {
+			return fea_hash1_iq(seed, p);
+		}
+	} else if (dimensions == 2) {
+		if (hash_type == 0) {
+			return fea_hash2_osl(seed, p);
+		} else if (hash_type == 1) {
+			return fea_hash2_iq(seed, p);
+		}
+	} else if (dimensions == 3) {
+		if (hash_type == 0) {
+			return fea_hash3_osl(seed, p);
+		} else if (hash_type == 1) {
+			return fea_hash3_iq(seed, p);
+		}
+	}
+	return vector(0);
+}
+
+// Hashes the given vector p according to dimension and with hash type.
+// No seed overload.
+vector fea_hash(int dimensions, int hash_type, vector p) {
+	return fea_hash(dimensions, hash_type, 0.0, p);
+}
+
+#endif // fea_hash_osl

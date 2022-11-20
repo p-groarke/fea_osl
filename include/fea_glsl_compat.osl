@@ -1,6 +1,7 @@
 // fea_glsl_compat osl libraries by Philippe Groarke
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_glsl_compat_osl
 #define fea_glsl_compat_osl 1
 
 #include <vector2.h>
@@ -95,3 +96,5 @@ matrix make_matrix_from_cm(float m00, float m01, float m02,
 		0, 0, 0, 1
 	);
 }
+
+#endif // fea_glsl_compat_osl

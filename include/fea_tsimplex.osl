@@ -5,6 +5,7 @@
 
 // Paper :
 // https://jcgt.org/published/0011/01/02/
+#ifndef fea_tsimplex_osl
 #define fea_tsimplex_osl 1
 #include <vector2.h>
 #include <vector4.h>
@@ -382,3 +383,5 @@ fea_tsimplex_ret fea_utsimplex(point x, vector period, float phase) {
 	ret.value = (ret.value + 1.0) * 0.5;
 	return ret;
 }
+
+#endif // fea_tsimplex_osl
