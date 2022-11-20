@@ -5,8 +5,11 @@
 - Download the [latest release](https://github.com/p-groarke/fea_osl/releases/latest) and unzip.
 - In 3dsMax, add a user plugin folder (Customize > Configure User and System Paths > 3rd Party Plug-Ins).
 - Add an `OSL` folder in that plugin folder.
-- Copy the `FeaOSL` folder to your new `OSL` directory.
+- Copy the `FeaOSL-vVER` folder to your new `OSL` directory.
 - You should see the shaders in your material editor drop-down on next 3dsMax launch.
+
+### Backward Compatibility
+To prevent breaking pre-existing scenes that use the shader pack, or changing their looks, the shader folder now comes versioned by default. It is recommended to **keep the version** in the folder name. This will allow you to upgrade without breaking any old scenes. Eventually of course, you'd likely want to clean up old versions. For example when a project finishes. But you will always be able to "go backward in time" by downloading an old pack and installing it with the versioned folder name.
 
 ## Color Scheme
 A utility helper which applies various color schemes to gradient maps. Includes a flatten and contour option.

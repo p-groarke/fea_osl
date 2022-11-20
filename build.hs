@@ -15,9 +15,6 @@ import System.FilePath (takeFileName)
 outDir :: String
 outDir = "build"
 
-tempBuildDir :: String
-tempBuildDir = "build/FeaOSL"
-
 feaLibFilename :: String
 feaLibFilename = "fea.osl"
 
@@ -49,6 +46,19 @@ getFeaVer = do
 	let r = rstrip v
 	return r
 
+getBuildDirLeaf :: IO String
+getBuildDirLeaf = do
+	unfiltered_ver <- getFeaVer
+	let ver = filter (\x -> x /= '.') unfiltered_ver
+	let folder = "FeaOSL-" ++ ver ++ "/"
+	return folder
+
+getBuildDir :: IO String
+getBuildDir = do
+	leaf <- getBuildDirLeaf
+	let folder = "build/" ++ leaf
+	return folder
+
 getZipFilename :: IO String
 getZipFilename = do
 	ver <- getFeaVer
@@ -70,7 +80,8 @@ replaceInclude contents = do
 
 writeToTemp :: FilePath -> String -> IO ()
 writeToTemp filepath contents = do
-	let out_filepath = tempBuildDir ++ "/" ++ takeFileName filepath
+	build_dir <- getBuildDir
+	let out_filepath = build_dir ++ takeFileName filepath
 	writeFile out_filepath contents
 
 
@@ -79,10 +90,13 @@ main = do
 	out_filename <- getZipFilename
 	printf "Generating %s\n" out_filename
 
-	-- Cleanup, todo : At end
-	dirExists <- doesDirectoryExist tempBuildDir
-	when dirExists (removeDirectoryRecursive tempBuildDir)
-	createDirectoryIfMissing True tempBuildDir
+	fea_version <- getFeaVer
+	build_dir <- getBuildDir
+	build_dir_leaf <- getBuildDirLeaf
+
+	dirExists <- doesDirectoryExist build_dir
+	when dirExists (removeDirectoryRecursive build_dir)
+	createDirectoryIfMissing True build_dir
 
 	files <- listDirectory "."
 
@@ -95,7 +109,7 @@ main = do
 	-- 		(liftM2 (||) (isSuffixOf ".md") (isSuffixOf ".ui"))
 	-- 		files
 
-	mapM_ (\f -> copyFile f (tempBuildDir ++ "/" ++ f)) support_files
+	mapM_ (\f -> copyFile f (build_dir ++ f)) support_files
 
 	-- Get *.osl files.
 	let osl_filepaths = filter
@@ -108,10 +122,9 @@ main = do
 	zipWithM_ writeToTemp osl_filepaths new_file_contents
 
 	-- Now, zip everything in the temp directory.
-	let out_filepath = "FeaOSL/" ++ out_filename
+	let out_filepath = build_dir_leaf ++ out_filename
+	let zip_expr = build_dir_leaf ++ "*"
 	-- callProcess "7z" ["a", "-aoa", "-tzip", out_filepath,
 	-- 		"./" ++ tempBuildDir ++ "/*"]
 	setCurrentDirectory "./build"
-	callProcess "7z" ["a", "-aoa", "-tzip", out_filepath,
-			"FeaOSL/*"]
-
+	callProcess "7z" ["a", "-aoa", "-tzip", out_filepath, zip_expr]
