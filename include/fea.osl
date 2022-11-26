@@ -2,7 +2,7 @@
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_osl
-#define fea_osl 1
+#define fea_osl
 
 #define FEA_RPACK_W 50
 #define FEA_SPACER(n) int __spacer##n = 0 [[string widget = "checkBox", int connectable = 0, int widgetWidth = 1]],
@@ -24,61 +24,18 @@ float fea_rad_to_per(float rad) {
 	return rad * 0.15915494309189498;
 }
 
+float fea_deg_to_rad(float deg) {
+	return deg * 0.01745329251994330;
+}
+
+float fea_rad_to_deg(float r) {
+	return r * 57.295779513082321;
+}
+
 // Given a radian angle, returns a 2d vector pointing
 // in that direction.
 vector fea_angle_to_vec(float rad) {
 	return vector(cos(rad), sin(rad), 0);
-}
-
-
-/**
- * Convolutions
- */
-
-// Sobel operator convolution.
-// Pass in a 3x3 matrix of data to convolve.
-// x
-// |-1| 0| 1|
-// |-2| 0| 2|
-// |-1| 0| 1|
-// y
-// |-1|-2|-1|
-// | 0| 0| 0|
-// | 1| 2| 1|
-vector fea_sobel_gradient(matrix m) {
-	float x = -m[0][0] + m[0][2] - 2 * m[1][0] + 2 * m[1][2]
-			- m[2][0] + m[2][2];
-
-	float y = -m[0][0] - 2 * m[0][1] - m[0][2]
-			+ m[2][0] + 2 * m[2][1] + m[2][2];
-
-	return vector(x, y, 0);
-}
-
-// Sharpen convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_sharpen(matrix m) {
-	return -m[0][1] - m[1][0] + 5 * m[1][1] - m[1][2] - m[2][1];
-}
-
-// Blur convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_blur(matrix m) {
-	return 0.0625 * (m[0][0] + m[0][2] + m[2][0] + m[2][2])
-			+ 0.125 * (m[0][1] + m[1][0] + m[1][2] + m[2][1])
-			+ 0.25 * m[1][1];
-}
-
-// Emboss convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_emboss(matrix m) {
-	return -2 * m[0][0] - m[0][1] - m[1][0] + m[1][1] + m[1][2] + m[2][1] + 2 * m[2][2];
-}
-
-// Outline convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_outline(matrix m) {
-	return -m[0][0] - m[0][1] - m[0][2] - m[1][0] + 8 * m[1][1] - m[1][2] - m[2][0] - m[2][1] - m[2][2];
 }
 
 
@@ -104,6 +61,24 @@ vector fea_floor_to(vector val, float decimal_mul) {
 			floor(val[1] * decimal_mul) / decimal_mul,
 			floor(val[2] * decimal_mul) / decimal_mul
 	);
+}
+
+// Linearly interpolate x between a and b.
+// x is expected to be between [0, 1].
+float fea_lerp(float x, float a, float b) {
+	float per = clamp(x, 0.0, 1.0);
+	return a + per * (b - a);
+}
+
+// Remap x, in the range [from_a, from_b], to the range [to_a, to_b].
+// Aka, lerp where x is not between 0, 1.
+float fea_lerp(float x, float from_a, float from_b, float to_a, float to_b) {
+	// Remap x into percentage.
+	float per = clamp(x, from_a, from_b);
+	per = (per - from_a) / (from_b - from_a);
+
+	// Typical lerp.
+	return fea_lerp(per, to_a, to_b);
 }
 
 // Play with k,

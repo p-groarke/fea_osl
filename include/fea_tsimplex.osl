@@ -6,89 +6,13 @@
 // Paper :
 // https://jcgt.org/published/0011/01/02/
 #ifndef fea_tsimplex_osl
-#define fea_tsimplex_osl 1
+#define fea_tsimplex_osl
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_glsl_compat.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_swizzle_vec2.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_swizzle_vec3.osl"
+
 #include <vector2.h>
 #include <vector4.h>
-
-// Headers re-implemented here to eliminate include recursion
-// and improve portability.
-#ifndef fea_glsl_compat_osl
-vector make_vector(vector2 x, float y) {
-	return vector(x.x, x.y, y);
-}
-vector make_vector(float x, vector2 y) {
-	return vector(x, y.x, y.y);
-}
-
-vector4 make_vector4(float v) {
-	return vector4(v, v, v, v);
-}
-
-vector fract(vector in) {
-	return in - floor(in);
-}
-
-vector4 mod(vector4 x, float y) {
-	return vector4(mod(x.x, y), mod(x.y, y), mod(x.z, y), mod(x.w, y));
-}
-
-vector greaterThan(vector x, vector y) {
-	vector ret = vector(0);
-	for (int i = 0; i < 3; ++i) {
-		ret[i] = float(x[i] > y[i]);
-	}
-	return ret;
-}
-
-// Since OSL doesn't have a bool vector,
-// the floats are interpreted as :
-// Anything other than 0.0 is true.
-int any(vector x) {
-	int ret = 0;
-	for (int i = 0; i < 3; ++i) {
-		ret |= x[i] != 0.0;
-	}
-	return ret;
-}
-
-// Makes an OSL row-major matrix from a GLSL column-major matrix.
-matrix make_matrix_from_cm(float m00, float m01, float m02,
-		float m10, float m11, float m12,
-		float m20, float m21, float m22) {
-	return matrix(
-		m00, m10, m20, 0,
-		m01, m11, m21, 0,
-		m02, m12, m22, 0,
-		0, 0, 0, 1
-	);
-}
-#endif // fea_glsl_compat
-
-#ifndef fea_x
-#define fea_x(val) val.x
-#endif
-#ifndef fea_y
-#define fea_y(val) val.y
-#endif
-#ifndef fea_z
-#define fea_z(val) val.z
-#endif
-#ifndef fea_xy
-#define fea_xy(val) \
-	vector2(fea_x(val), fea_y(val))
-#endif
-#ifndef fea_xyx
-#define fea_xyx(val) \
-	vector(fea_x(val), fea_y(val), fea_x(val))
-#endif
-#ifndef fea_yzx
-#define fea_yzx(val) \
-	vector(fea_y(val), fea_z(val), fea_x(val))
-#endif
-#ifndef fea_yzz
-#define fea_yzz(val) \
-	vector(fea_y(val), fea_z(val), fea_z(val))
-#endif
 
 // The return values of fea_tsimplex
 struct fea_tsimplex_ret {
@@ -164,11 +88,6 @@ fea_tsimplex_ret __operator__div__(fea_tsimplex_ret lhs, float rhs) {
 // and "out vector dg, out vector dg2" return the 2nd order derivatives, with
 // dg = (d2n/dx2, d2n/dy2, d2n/dz2) dg2 = (d2n/dxy, d2n/dyz, d2n/dxz).
 //
-// The function executes 15% faster if alpha is dynamically constant == 0.0
-// across all fragments being executed in parallel.
-// (This speedup will not happen if FASTROTATION is enabled. Do not specify
-// FASTROTATION if you are not actually going to use the rotation.)
-//
 // Setting any period to 0.0 or a negative value will skip the periodic
 // wrap for that dimension. Setting all periods to 0.0 makes the function
 // execute about 10% faster.
@@ -177,7 +96,7 @@ fea_tsimplex_ret __operator__div__(fea_tsimplex_ret lhs, float rhs) {
 // will make the compiler eliminate the code for computing that value.
 // Not using "dg" and "dg2" speeds up the function by 15-20%. Using
 // none of "gradient", "dg" and "dg2" speeds up the function by 25-30%.
-fea_tsimplex_ret fea_tsimplex(vector x, vector period, float alpha) {
+fea_tsimplex_ret fea_tsimplex(point x, vector period, float alpha) {
 	// Permutation polynomial for the hash value
 	vector permute(vector i) {
 		vector im = mod(i, 289.0);
@@ -204,15 +123,13 @@ fea_tsimplex_ret fea_tsimplex(vector x, vector period, float alpha) {
 		0.5, 0.5,-0.5
 	);
 
-	vector uvw;
-
 	// Transform to simplex space (tetrahedral grid)
 	// Use matrix multiplication, let the compiler optimise
-	uvw = transform(M, x);
+	point uvw = transform(M, x);
 
 
 	// Determine which simplex we're in, i0 is the "base corner"
-	vector i0 = floor(uvw);
+	point i0 = floor(uvw);
 	vector f0 = fract(uvw); // coords within "skewed cube"
 
 	// To determine which simplex corners are closest, rank order the
@@ -227,11 +144,11 @@ fea_tsimplex_ret fea_tsimplex(vector x, vector period, float alpha) {
 	vector o2 = max( g, l );
 
 	// Enumerate the remaining simplex corners
-	vector i1 = i0 + o1;
-	vector i2 = i0 + o2;
-	vector i3 = i0 + vector(1.0);
+	point i1 = i0 + o1;
+	point i2 = i0 + o2;
+	point i3 = i0 + vector(1.0);
 
-	vector v0, v1, v2, v3;
+	point v0, v1, v2, v3;
 
 	// Transform the corners back to texture space
 	v0 = transform(Mi, i0);
@@ -258,10 +175,10 @@ fea_tsimplex_ret fea_tsimplex(vector x, vector period, float alpha) {
 		if(period.z > 0.0) vz = mod(vz, period.z);
 
 		// Transform back
-		i0 = transform(M, vector(vx.x, vy.x, vz.x));
-		i1 = transform(M, vector(vx.y, vy.y, vz.y));
-		i2 = transform(M, vector(vx.z, vy.z, vz.z));
-		i3 = transform(M, vector(vx.w, vy.w, vz.w));
+		i0 = transform(M, point(vx.x, vy.x, vz.x));
+		i1 = transform(M, point(vx.y, vy.y, vz.y));
+		i2 = transform(M, point(vx.z, vy.z, vz.z));
+		i3 = transform(M, point(vx.w, vy.w, vz.w));
 
 		// Fix rounding errors
 		i0 = floor(i0 + 0.5);
@@ -288,7 +205,6 @@ fea_tsimplex_ret fea_tsimplex(vector x, vector period, float alpha) {
 	vector4 gx, gy, gz;
 
 	// Rotate gradients by angle alpha around a pseudo-random ortogonal axis
-// #ifdef FASTROTATION
 	// Fast algorithm, but without dynamic shortcut for alpha = 0
 	vector4 qx = St; // q' = norm ( cross(s, n) )  on the equator
 	vector4 qy = -Ct;
@@ -305,34 +221,6 @@ fea_tsimplex_ret fea_tsimplex(vector x, vector period, float alpha) {
 	gx = Ca * px + Sa * qx;
 	gy = Ca * py + Sa * qy;
 	gz = Ca * pz + Sa * qz;
-// #else
-// 	// Slightly slower algorithm, but with g = s for alpha = 0, and a
-// 	// strong conditional speedup for alpha = 0 across all fragments
-// 	if(alpha != 0.0) {
-// 			vector4 Sp = sin(psi); // q' from psi on equator
-// 			vector4 Cp = cos(psi);
-
-// 			vector4 px = Ct * sz_prime; // px = sx
-// 			vector4 py = St * sz_prime; // py = sy
-// 			vector4 pz = sz;
-
-// 			vector4 Ctp = St*Sp - Ct*Cp; // q = (rotate( cross(s,n), dot(s,n))(q')
-// 			vector4 qx = mix( Ctp*St, Sp, sz);
-// 			vector4 qy = mix(-Ctp*Ct, Cp, sz);
-// 			vector4 qz = -(py*Cp + px*Sp);
-
-// 			vector4 Sa = make_vector4(sin(alpha)); // psi and alpha in different planes
-// 			vector4 Ca = make_vector4(cos(alpha));
-
-// 			gx = Ca * px + Sa * qx;
-// 			gy = Ca * py + Sa * qy;
-// 			gz = Ca * pz + Sa * qz;
-// 	} else {
-// 			gx = Ct * sz_prime; // alpha = 0, use s directly as gradient
-// 			gy = St * sz_prime;
-// 			gz = sz;
-// 	}
-// #endif
 
 	// Reorganize for dot products below
 	vector g0 = vector(gx.x, gy.x, gz.x);

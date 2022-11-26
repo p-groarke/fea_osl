@@ -2,7 +2,7 @@
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_color_osl
-#define fea_color_osl 1
+#define fea_color_osl
 
 // fea_blend enum ui options.
 #define fea_blend_opts \
@@ -160,27 +160,27 @@ float fea_average(color in) {
 	return (in[0] + in[1] + in[2]) / 3.0;
 }
 
-// Given the 3 colors and a precentage,
-// mix between them (1/3 per color).
-color fea_mix(color c1, color c2, color c3, float p) {
-	float p1 = clamp(p * 2 - 1, 0, 1);
-	color temp = mix(c2, c3, p1);
+// // Given the 3 colors and a precentage,
+// // mix between them (1/3 per color).
+// color fea_mix(color c1, color c2, color c3, float p) {
+// 	float p1 = clamp(p * 2 - 1, 0, 1);
+// 	color temp = mix(c2, c3, p1);
 
-	float p2 = clamp(p * 2, 0, 1);
-	return mix(c1, temp, p2);
-}
+// 	float p2 = clamp(p * 2, 0, 1);
+// 	return mix(c1, temp, p2);
+// }
 
-// Given the 4 colors and a precentage,
-// mix between them (1/4 per color).
-color fea_mix(color c1, color c2, color c3, color c4, float p) {
-	float p1 = clamp(p * 3 - 2, 0, 1);
-	color temp1 = mix(c3, c4, p1);
+// // Given the 4 colors and a precentage,
+// // mix between them (1/4 per color).
+// color fea_mix(color c1, color c2, color c3, color c4, float p) {
+// 	float p1 = clamp(p * 3 - 2, 0, 1);
+// 	color temp1 = mix(c3, c4, p1);
 
-	float p2 = clamp(p * 3 - 1, 0, 1);
-	color temp2 = mix(c2, temp1, p2);
+// 	float p2 = clamp(p * 3 - 1, 0, 1);
+// 	color temp2 = mix(c2, temp1, p2);
 
-	float p3 = clamp(p * 3, 0, 1);
-	return mix(c1, temp2, p3);
-}
+// 	float p3 = clamp(p * 3, 0, 1);
+// 	return mix(c1, temp2, p3);
+// }
 
 #endif // fea_color_osl

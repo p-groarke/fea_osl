@@ -2,8 +2,7 @@
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_glsl_compat_osl
-#define fea_glsl_compat_osl 1
-
+#define fea_glsl_compat_osl
 #include <vector2.h>
 #include <vector4.h>
 

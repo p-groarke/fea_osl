@@ -2,7 +2,7 @@
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_swizzle_vec3_osl
-#define fea_swizzle_vec3_osl 1
+#define fea_swizzle_vec3_osl
 
 #ifndef fea_x
 #define fea_x(val) val.x

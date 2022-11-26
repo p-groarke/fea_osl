@@ -3,16 +3,21 @@
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_functional.osl"
 
+// add uv map control
+// add time
+
+
 shader TilingSimplex
 [[
+	string label = "Tiling Simplex",
 	string help	=
 		"<h3>Tiling Simplex</h3>"
 		"A tiling simplex noise.<br>Port of Stefan Gustavson's and Ian McEwan's GLSL implementation."
 		,
-	string label = "Tiling Simplex"
 ]]
 (
 	int in_fbm_octaves = 3
@@ -20,20 +25,60 @@ shader TilingSimplex
 		string label = "Octaves",
 		string help = "How many octaves used for the fractal brownian motion (clouds).",
 		int min = 1,
+		int max = 6,
+		// int connectable = 0,
+		// string packName = "Octaves / Lacunarity",
 	]],
 
 	float in_lacunarity = 1.8
 	[[
 		string label = "Lacunarity",
 		string help = "The frequency growth factor used by the fractalization.",
+		float min = 0.01,
+		// int connectable = 0,
+		// string packName = "Octaves / Lacunarity",
 	]],
 
 	vector in_tiling = 0.0
 	[[
-		string label = "Tiling",
-		string help = "These are the x, y, z periods, used to tile the noise. '0' means no tiling.",
+		string label = "Tile Size",
+		string help = "These are the x, y, z periods, used to tile the noise. [0, 0, 0] disables tiling (infinite noise).",
 		float max = 289.0,
 	]],
+
+	FEA_SPACER(0)
+
+	float in_low_clamp = 0.0
+	[[
+		string label = "Low Value",
+		string help = "The minimum value of the noise. Hard clamped.",
+		float min = 0.0,
+		float max = 1.0,
+		// string packName = "High / Low Clamp",
+	]],
+
+	float in_high_clamp = 1.0
+	[[
+		string label = "High Value",
+		string help = "The maximum value of the noise. Hard clamped.",
+		float min = 0.0,
+		float max = 1.0,
+		// string packName = "High / Low Clamp",
+	]],
+
+	color in_low_color = 0
+	[[
+		string label = "Low Color",
+		string help = "The dark color (noise == 0).",
+	]],
+
+	color in_high_color = 1
+	[[
+		string label = "High Color",
+		string help = "The light color (noise == 1).",
+	]],
+
+	FEA_SPACER(1)
 
 	float in_phase = 0.0
 	[[
@@ -64,14 +109,16 @@ shader TilingSimplex
 	point coord = in_uvw / in_uv_scale;
 
 	fea_tsimplex_ret eval_noise(float freq) {
-		return fea_utsimplex(coord * freq, in_tiling * freq, in_phase);
+		return fea_utsimplex(coord * freq, in_tiling * freq, fea_per_to_rad(in_phase));
 	}
 
-	fea_tsimplex_ret noisev = fea_make_tsimplex_ret();
-	fea_fractalize(in_fbm_octaves, in_lacunarity, eval_noise, noisev);
+	fea_tsimplex_ret ret = fea_make_tsimplex_ret();
+	fea_fractalize(in_fbm_octaves, in_lacunarity, eval_noise, ret);
 
-	Out = noisev.value;
-	Gradient = noisev.gradient;
-	SecondDeriv = noisev.dg;
-	SecondDeriv2 = noisev.dg2;
+	ret.value = fea_lerp(ret.value, in_low_clamp, in_high_clamp, 0, 1);
+
+	Out = mix(in_low_color, in_high_color, ret.value);
+	Gradient = ret.gradient;
+	SecondDeriv = ret.dg;
+	SecondDeriv2 = ret.dg2;
 }
