@@ -103,22 +103,41 @@ shader TilingSimplex
 	output color Out = 0,
 	output color Gradient = 0,
 	output color SecondDeriv = 0,
-	output color SecondDeriv2 = 0
+	output color SecondDeriv2 = 0,
+	output color Fun = 0
 )
 {
 	point coord = in_uvw / in_uv_scale;
 
-	fea_tsimplex_ret eval_noise(float freq) {
-		return fea_utsimplex(coord * freq, in_tiling * freq, fea_per_to_rad(in_phase));
-	}
-
-	fea_tsimplex_ret ret = fea_make_tsimplex_ret();
-	fea_fractalize(in_fbm_octaves, in_lacunarity, eval_noise, ret);
-
+	fea_tsimplex_ret ret = fea_utsimplex_fbm(coord, in_fbm_octaves, in_lacunarity, in_tiling, fea_per_to_rad(in_phase));
 	ret.value = fea_lerp(ret.value, in_low_clamp, in_high_clamp, 0, 1);
 
 	Out = mix(in_low_color, in_high_color, ret.value);
 	Gradient = ret.gradient;
 	SecondDeriv = ret.dg;
 	SecondDeriv2 = ret.dg2;
+
+	// Fun
+	{
+		// float alpha = fea_per_to_rad(in_phase);
+
+		// point c1 = coord;
+		// point c2 = coord + vector(5.2, 1.3, 0.0);
+		// fea_tsimplex_ret v1 = fea_utsimplex_fbm(c1, in_fbm_octaves, in_lacunarity, in_tiling, alpha);
+		// fea_tsimplex_ret v2 = fea_utsimplex_fbm(c2, in_fbm_octaves, in_lacunarity, in_tiling, alpha);
+
+		// point c3 = coord + 4.0 * point(v1.value, v2.value, 0.0);
+
+		// point c4 = c3 + point(1.7, 9.2, 0.0);
+		// point c5 = c3 + point(8.3, 2.8, 0.0);
+		// v1 = fea_utsimplex_fbm(c4, in_fbm_octaves, in_lacunarity, in_tiling, alpha);
+		// v2 = fea_utsimplex_fbm(c5, in_fbm_octaves, in_lacunarity, in_tiling, alpha);
+
+		// point c6 = coord + 4.0 * point(v1.value, v2.value, 0.0);
+
+		// fea_tsimplex_ret final = fea_utsimplex_fbm(c6, in_fbm_octaves, in_lacunarity, in_tiling, alpha);
+		// final.value = fea_lerp(final.value, in_low_clamp, in_high_clamp, 0, 1);
+		// Fun = mix(in_low_color, in_high_color, final.value);
+
+	}
 }

@@ -10,6 +10,7 @@
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_glsl_compat.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_swizzle_vec2.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_swizzle_vec3.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_functional.osl"
 
 #include <vector2.h>
 #include <vector4.h>
@@ -96,7 +97,7 @@ fea_tsimplex_ret __operator__div__(fea_tsimplex_ret lhs, float rhs) {
 // will make the compiler eliminate the code for computing that value.
 // Not using "dg" and "dg2" speeds up the function by 15-20%. Using
 // none of "gradient", "dg" and "dg2" speeds up the function by 25-30%.
-fea_tsimplex_ret fea_tsimplex(point x, vector period, float alpha) {
+fea_tsimplex_ret fea_tsimplex(point coord, vector period, float alpha) {
 	// Permutation polynomial for the hash value
 	vector permute(vector i) {
 		vector im = mod(i, 289.0);
@@ -125,7 +126,7 @@ fea_tsimplex_ret fea_tsimplex(point x, vector period, float alpha) {
 
 	// Transform to simplex space (tetrahedral grid)
 	// Use matrix multiplication, let the compiler optimise
-	point uvw = transform(M, x);
+	point uvw = transform(M, coord);
 
 
 	// Determine which simplex we're in, i0 is the "base corner"
@@ -157,10 +158,10 @@ fea_tsimplex_ret fea_tsimplex(point x, vector period, float alpha) {
 	v3 = transform(Mi, i3);
 
 	// Compute vectors to each of the simplex corners
-	vector x0 = x - v0;
-	vector x1 = x - v1;
-	vector x2 = x - v2;
-	vector x3 = x - v3;
+	vector x0 = coord - v0;
+	vector x1 = coord - v1;
+	vector x2 = coord - v2;
+	vector x3 = coord - v3;
 
 	if(any(greaterThan(period, vector(0.0)))) {
 
@@ -266,9 +267,35 @@ fea_tsimplex_ret fea_tsimplex(point x, vector period, float alpha) {
 	return ret;
 }
 
-fea_tsimplex_ret fea_utsimplex(point x, vector period, float phase) {
-	fea_tsimplex_ret ret = fea_tsimplex(x, period, phase);
+// Unsigned overload, return [0, 1].
+fea_tsimplex_ret fea_utsimplex(point coord, vector period, float phase) {
+	fea_tsimplex_ret ret = fea_tsimplex(coord, period, phase);
 	ret.value = (ret.value + 1.0) * 0.5;
+	return ret;
+}
+
+
+// Tiling simplex FBM.
+fea_tsimplex_ret fea_tsimplex_fbm(point coord, int num_octaves, float lacunarity, vector period, float alpha) {
+	fea_tsimplex_ret ret = fea_make_tsimplex_ret();
+
+	fea_tsimplex_ret fbm_callback(float freq) {
+		return fea_tsimplex(coord * freq + freq * 0.1, period * freq, alpha * freq);
+	}
+
+	fea_fractalize(num_octaves, lacunarity, fbm_callback, ret);
+	return ret;
+}
+
+// Unsigned tiling simplex FBM.
+fea_tsimplex_ret fea_utsimplex_fbm(point coord, int num_octaves, float lacunarity, vector period, float alpha) {
+	fea_tsimplex_ret ret = fea_make_tsimplex_ret();
+
+	fea_tsimplex_ret fbm_callback(float freq) {
+		return fea_utsimplex(coord * freq + freq * 0.1, period * freq, alpha * freq);
+	}
+
+	fea_fractalize(num_octaves, lacunarity, fbm_callback, ret);
 	return ret;
 }
 

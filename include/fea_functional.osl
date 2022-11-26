@@ -146,17 +146,17 @@ float fea_outline(matrix m) {
 // #define fea_fractalize(iterations, lacunarity, func, out_value) \
 // { \
 // 	if (iterations >= 1) { \
-// 		float inv_lacun = 1.0 / lacunarity; \
-// 		float amp = inv_lacun; \
-// 		float freq = 1.0; \
-// 		float norm = amp; \
-// 		for (int mi = 0; mi < iterations; ++mi) { \
-// 			out_value += func(freq) * amp; \
-// 			freq *= lacunarity; \
-// 			amp *= inv_lacun; \
-// 			norm += amp; \
+// 		float fea_m_inv_lacun = 1.0 / lacunarity; \
+// 		float fea_m_amp = fea_m_inv_lacun; \
+// 		float fea_m_freq = 1.0; \
+// 		float fea_m_norm = 0.0; \
+// 		for (int fea_m_i = 0; fea_m_i < iterations; ++fea_m_i) { \
+// 			fea_m_norm += fea_m_amp; \
+// 			out_value += func(fea_m_freq) * fea_m_amp; \
+// 			fea_m_freq *= lacunarity; \
+// 			fea_m_amp *= fea_m_inv_lacun; \
 // 		} \
-// 		out_value /= norm; \
+// 		out_value /= fea_m_norm; \
 // 	} \
 // }
 
