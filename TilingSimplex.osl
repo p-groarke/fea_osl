@@ -3,12 +3,9 @@
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_functional.osl"
-
-// add uv map control
-// add time
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_phase.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
 
 
 shader TilingSimplex
@@ -26,7 +23,7 @@ shader TilingSimplex
 		string help = "How many octaves used for the fractal brownian motion (clouds).",
 		int min = 1,
 		int max = 6,
-		// int connectable = 0,
+		int connectable = 0,
 		// string packName = "Octaves / Lacunarity",
 	]],
 
@@ -35,7 +32,7 @@ shader TilingSimplex
 		string label = "Lacunarity",
 		string help = "The frequency growth factor used by the fractalization.",
 		float min = 0.01,
-		// int connectable = 0,
+		int connectable = 0,
 		// string packName = "Octaves / Lacunarity",
 	]],
 
@@ -44,9 +41,10 @@ shader TilingSimplex
 		string label = "Tile Size",
 		string help = "These are the x, y, z periods, used to tile the noise. [0, 0, 0] disables tiling (infinite noise).",
 		float max = 289.0,
+		int connectable = 0,
 	]],
 
-	FEA_SPACER(0)
+	FEA_SPACER(0),
 
 	float in_low_clamp = 0.0
 	[[
@@ -78,27 +76,8 @@ shader TilingSimplex
 		string help = "The light color (noise == 1).",
 	]],
 
-	FEA_SPACER(1)
-
-	float in_phase = 0.0
-	[[
-		string label = "Phase",
-		string help = "Used to animate the noise. Rotates the underlying random points.",
-	]],
-
-	float in_uv_scale = 1.0
-	[[
-		string label = "UV Scale",
-		string help = "Scale your UVWs up or down. For more betterer transformations, use UVW Transform node.",
-		float min = 0.00001,
-		int connectable = 0,
-	]],
-
-	point in_uvw = transform("object", P)
-	[[
-		string label = "UVW",
-		string help = "Transformed UVW coordinates. Animate 'w' with scene time for interesting results.",
-	]],
+	FEA_WGT_PHASE_INPUTS,
+	FEA_WGT_UVW_INPUTS,
 
 	output color Out = 0,
 	output color Gradient = 0,
@@ -107,37 +86,14 @@ shader TilingSimplex
 	output color Fun = 0
 )
 {
-	point coord = in_uvw / in_uv_scale;
+	point coord = FEA_WGT_GET_UVW;
+	float phase = FEA_WGT_GET_PHASE;
 
-	fea_tsimplex_ret ret = fea_utsimplex_fbm(coord, in_fbm_octaves, in_lacunarity, in_tiling, fea_per_to_rad(in_phase));
+	fea_tsimplex_ret ret = fea_utsimplex_fbm(coord, in_fbm_octaves, in_lacunarity, in_tiling, phase);
 	ret.value = fea_lerp(ret.value, in_low_clamp, in_high_clamp, 0, 1);
 
 	Out = mix(in_low_color, in_high_color, ret.value);
 	Gradient = ret.gradient;
 	SecondDeriv = ret.dg;
 	SecondDeriv2 = ret.dg2;
-
-	// Fun
-	{
-		// float alpha = fea_per_to_rad(in_phase);
-
-		// point c1 = coord;
-		// point c2 = coord + vector(5.2, 1.3, 0.0);
-		// fea_tsimplex_ret v1 = fea_utsimplex_fbm(c1, in_fbm_octaves, in_lacunarity, in_tiling, alpha);
-		// fea_tsimplex_ret v2 = fea_utsimplex_fbm(c2, in_fbm_octaves, in_lacunarity, in_tiling, alpha);
-
-		// point c3 = coord + 4.0 * point(v1.value, v2.value, 0.0);
-
-		// point c4 = c3 + point(1.7, 9.2, 0.0);
-		// point c5 = c3 + point(8.3, 2.8, 0.0);
-		// v1 = fea_utsimplex_fbm(c4, in_fbm_octaves, in_lacunarity, in_tiling, alpha);
-		// v2 = fea_utsimplex_fbm(c5, in_fbm_octaves, in_lacunarity, in_tiling, alpha);
-
-		// point c6 = coord + 4.0 * point(v1.value, v2.value, 0.0);
-
-		// fea_tsimplex_ret final = fea_utsimplex_fbm(c6, in_fbm_octaves, in_lacunarity, in_tiling, alpha);
-		// final.value = fea_lerp(final.value, in_low_clamp, in_high_clamp, 0, 1);
-		// Fun = mix(in_low_color, in_high_color, final.value);
-
-	}
 }

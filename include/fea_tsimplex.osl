@@ -7,6 +7,7 @@
 // https://jcgt.org/published/0011/01/02/
 #ifndef fea_tsimplex_osl
 #define fea_tsimplex_osl
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_glsl_compat.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_swizzle_vec2.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_swizzle_vec3.osl"
@@ -83,7 +84,7 @@ fea_tsimplex_ret __operator__div__(fea_tsimplex_ret lhs, float rhs) {
 // second order analytical derivatives.
 // "vector x" is the point (x,y,z) to evaluate
 // "vector period" is the desired periods along x,y,z, up to 289.
-// "float alpha" is the rotation (in radians) for the swirling gradients.
+// "float phase" is the rotation (in percent) for the swirling gradients.
 // The "float" return value is the noise value n,
 // the "out vector gradient" argument returns the x,y,z 1st order derivatives,
 // and "out vector dg, out vector dg2" return the 2nd order derivatives, with
@@ -97,7 +98,7 @@ fea_tsimplex_ret __operator__div__(fea_tsimplex_ret lhs, float rhs) {
 // will make the compiler eliminate the code for computing that value.
 // Not using "dg" and "dg2" speeds up the function by 15-20%. Using
 // none of "gradient", "dg" and "dg2" speeds up the function by 25-30%.
-fea_tsimplex_ret fea_tsimplex(point coord, vector period, float alpha) {
+fea_tsimplex_ret fea_tsimplex(point coord, vector period, float phase) {
 	// Permutation polynomial for the hash value
 	vector permute(vector i) {
 		vector im = mod(i, 289.0);
@@ -123,6 +124,8 @@ fea_tsimplex_ret fea_tsimplex(point coord, vector period, float alpha) {
 		0.5,-0.5, 0.5,
 		0.5, 0.5,-0.5
 	);
+
+	float alpha = fea_per_to_rad(phase);
 
 	// Transform to simplex space (tetrahedral grid)
 	// Use matrix multiplication, let the compiler optimise
@@ -276,11 +279,11 @@ fea_tsimplex_ret fea_utsimplex(point coord, vector period, float phase) {
 
 
 // Tiling simplex FBM.
-fea_tsimplex_ret fea_tsimplex_fbm(point coord, int num_octaves, float lacunarity, vector period, float alpha) {
+fea_tsimplex_ret fea_tsimplex_fbm(point coord, int num_octaves, float lacunarity, vector period, float phase) {
 	fea_tsimplex_ret ret = fea_make_tsimplex_ret();
 
 	fea_tsimplex_ret fbm_callback(float freq) {
-		return fea_tsimplex(coord * freq + freq * 0.1, period * freq, alpha * freq);
+		return fea_tsimplex(coord * freq + freq * 0.1, period * freq, phase);
 	}
 
 	fea_fractalize(num_octaves, lacunarity, fbm_callback, ret);
@@ -288,11 +291,11 @@ fea_tsimplex_ret fea_tsimplex_fbm(point coord, int num_octaves, float lacunarity
 }
 
 // Unsigned tiling simplex FBM.
-fea_tsimplex_ret fea_utsimplex_fbm(point coord, int num_octaves, float lacunarity, vector period, float alpha) {
+fea_tsimplex_ret fea_utsimplex_fbm(point coord, int num_octaves, float lacunarity, vector period, float phase) {
 	fea_tsimplex_ret ret = fea_make_tsimplex_ret();
 
 	fea_tsimplex_ret fbm_callback(float freq) {
-		return fea_utsimplex(coord * freq + freq * 0.1, period * freq, alpha * freq);
+		return fea_utsimplex(coord * freq + freq * 0.1, period * freq, phase);
 	}
 
 	fea_fractalize(num_octaves, lacunarity, fbm_callback, ret);

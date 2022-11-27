@@ -1,0 +1,118 @@
+// fea_widget_uvw osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_widget_uvw_osl
+#define fea_widget_uvw_osl
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
+
+#define FEA_WGT_UVW_INPUTS \
+	FEA_SPACER(201), \
+	FEA_TITLE(201, "UVWs"), \
+\
+	int in_uvw_mode = 0 \
+	[[ \
+		string widget = "mapper", \
+		string label = "UVW Mode", \
+		string options = \
+			"Map Channel:0" \
+			"|UVW Input:1" \
+			"|Object Space (No UVWs):2" \
+			"|World Space (No UVWs):3" \
+			"|Camera Space (No UVWs):4" \
+			, \
+		string help = "Select the UVW input mode.", \
+		int connectable = 0, \
+	]], \
+	int in_uvw_map_channel = 1 \
+	[[ \
+		string label = "UVW Map Channel", \
+		string help = "The 3ds max Map channel to look up. Used in 'Map Selection' mode.", \
+		int min = 0, \
+		int max = 99, \
+		int connectable = 0, \
+	]], \
+	point in_uvw_input = 0 \
+	[[ \
+		string label = "UVW Input", \
+		string help = "The UVW input map. Used in 'UVW Input' mode.", \
+		string widget = "null", \
+	]], \
+	float in_uvw_scale = 1.0 \
+	[[ \
+		string label = "UVW Scale", \
+		string help = "Scale your UVWs up or down. Remember to change scale when using 'No UVWs' modes.", \
+		float min = 0.0001, \
+		int connectable = 0, \
+	]], \
+	vector in_uvw_axis_scale = 1.0 \
+	[[ \
+		string label = "UVW Per-Axis Scale", \
+		string help = "A per-axis scale. Works in addition to the single value scale.", \
+		vector min = 0.0001, \
+		int connectable = 0, \
+	]], \
+	point in_uvw_offset = 0.0 \
+	[[ \
+		string label = "UVW Offset", \
+		string help = "Moves the UVW coordinate around.", \
+		int connectable = 0, \
+	]], \
+	int in_uvw_wrap = 0 \
+	[[ \
+		string label = "UVW Wrap", \
+		string help = "Wrap the resulting coordinates in a 0-1 range", \
+		string widget = "checkBox", \
+		int connectable = 0, \
+	]]
+
+point fea_wgt_compute_uvw(int mode, int map_channel, point uvw_input, float scale, vector axis_scale, point offset, int wrap) {
+	point ret = 0;
+
+	if (mode == 0) {
+		// map selection
+		if (!getattribute(format("UV%d", map_channel), ret))
+		{
+			// Get MAXtoA style UV
+			float w = 0.0;
+
+			// Default UV set handled in
+			// a special way in MAXtoA
+			if (map_channel == 1)
+			{
+				ret = vector(u,v,0);
+				getattribute("w",  w);
+			}
+			else // ...the others are just attributes
+			{
+				getattribute(format("uv_%d", map_channel), ret);
+				getattribute(format("w_%d", map_channel), w);
+			}
+			// Insert 3rd dimension if any
+			ret[2] = w;
+		}
+	} else if (mode == 1) {
+		// node input
+		ret = uvw_input;
+	} else if (mode == 2) {
+		// object space
+		ret = transform("object", P);
+	} else if (mode == 3) {
+		// world space
+		ret = transform("world", P);
+	} else if (mode == 4) {
+		// camera space
+		ret = transform("camera", P);
+	}
+
+	ret = (ret - offset) / axis_scale / scale;
+	if (wrap) {
+		ret -= floor(ret);
+	}
+
+	return ret;
+}
+
+#define FEA_WGT_GET_UVW \
+	fea_wgt_compute_uvw(in_uvw_mode, in_uvw_map_channel, in_uvw_input, in_uvw_scale, in_uvw_axis_scale, in_uvw_offset, in_uvw_wrap)
+
+#endif // fea_widget_uvw_osl

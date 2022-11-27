@@ -4,8 +4,6 @@
 #ifndef fea_osl
 #define fea_osl
 
-#define FEA_RPACK_W 50
-#define FEA_SPACER(n) int __spacer##n = 0 [[string widget = "checkBox", int connectable = 0, int widgetWidth = 1]],
 #define FEA_FLT_MAX 3.402823e+38
 
 /**
@@ -63,24 +61,70 @@ vector fea_floor_to(vector val, float decimal_mul) {
 	);
 }
 
+// Given x in the range [a, b], converts to percentage.
+float fea_to_percent(float x, float a, float b) {
+	float ret = clamp(x, a, b);
+	return (ret - a) / (b - a);
+}
+
 // Linearly interpolate x between a and b.
-// x is expected to be between [0, 1].
+// x is clamped to [0, 1].
 float fea_lerp(float x, float a, float b) {
 	float per = clamp(x, 0.0, 1.0);
 	return a + per * (b - a);
 }
 
-// Remap x, in the range [from_a, from_b], to the range [to_a, to_b].
+// With x in the range [from_a, from_b], lerp to the range [to_a, to_b].
 // Aka, lerp where x is not between 0, 1.
+// x is clamped to [from_a, from_b].
 float fea_lerp(float x, float from_a, float from_b, float to_a, float to_b) {
 	// Remap x into percentage.
-	float per = clamp(x, from_a, from_b);
-	per = (per - from_a) / (from_b - from_a);
+	float per = fea_to_percent(x, from_a, from_b);
 
 	// Typical lerp.
-	return fea_lerp(per, to_a, to_b);
+	return to_a + per * (to_b - to_a);
 }
 
+// Interpolates x, according to the k control, between a and b.
+//
+// x is clamped to [0, 1]
+// k > 0, exponential
+// k == 0, linear
+// k < 0, logarithmic
+//
+// https://www.desmos.com/calculator/og836nvwmx
+float fea_interp(float x, float k, float a, float b) {
+	if (k == 0.0) {
+		return fea_lerp(x, a, b);
+	}
+
+	float per = clamp(x, 0.0, 1.0);
+	return a + ((exp(k * per) - 1.0) / (exp(k) - 1.0)) * (b - a);
+}
+
+// With x in the range [from_a, from_b],
+// interpolate to the output range [to_a, to_b].
+// Using k to control the curve.
+//
+// x is clamped to [from_a, from_b].
+// k > 0, exponential
+// k == 0, linear
+// k < 0, logarithmic
+//
+// https://www.desmos.com/calculator/og836nvwmx
+float fea_interp(float x, float k, float from_a, float from_b, float to_a, float to_b) {
+	if (k == 0.0) {
+		return fea_lerp(x, from_a, from_b, to_a, to_b);
+	}
+
+	// Remap x into percentage.
+	float per = fea_to_percent(x, from_a, from_b);
+
+	// Typical interpolation.
+	return to_a + ((exp(k * per) - 1.0) / (exp(k) - 1.0)) * (to_b - to_a);
+}
+
+// Original func, legacy.
 // Play with k,
 // https://www.desmos.com/calculator/og836nvwmx
 // k > 0, exponential

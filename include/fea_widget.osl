@@ -1,0 +1,30 @@
+// fea_widget osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_widget_osl
+#define fea_widget_osl
+
+// Nice right packing width, when using packs.
+#define FEA_RPACK_W 50
+
+// Adds an empty space.
+#define FEA_SPACER(n) int fea_m_spacer##n = 0 \
+[[ \
+	string widget = "checkBox", \
+	int connectable = 0, \
+	int widgetWidth = 1, \
+]]
+
+// Adds a bold title.
+// Note, unfortunately no widget is fully hidden for this one.
+// filename is hidden, but cannot work as it opens a dialog when the shader
+// is added to a scene :[
+#define FEA_TITLE(n, title) int fea_m_title##n = 0 \
+[[ \
+	string label = "<b>"title"</b>", \
+	string widget = "mapper", \
+	int connectable = 0, \
+	int widgetWidth = 1, \
+]]
+
+#endif // fea_widget_osl

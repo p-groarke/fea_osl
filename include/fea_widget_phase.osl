@@ -1,0 +1,69 @@
+// fea_widget_phase osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_widget_phase_osl
+#define fea_widget_phase_osl
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
+
+#define FEA_WGT_PHASE_INPUTS \
+	FEA_SPACER(200), \
+	FEA_TITLE(200, "Phase"), \
+\
+	int in_phase_mode = 0 \
+	[[ \
+		string widget = "mapper", \
+		string label = "Phase Mode", \
+		string options = \
+			"Time:0" \
+			"|Phase Input:1" \
+			"|Constant Seed:2" \
+			, \
+		string help = "Select the Phase input mode.", \
+		int connectable = 0, \
+	]], \
+	float in_phase_time = 0.0 \
+	[[ \
+		string label = "Phase Time (s)", \
+		string help = "The scene time in seconds. Piped into phase when using 'Time' mode.", \
+		string widget = "null", \
+		int timeValue = 1, \
+		int connectable = 0, \
+	]], \
+	float in_phase_input = 0.0 \
+	[[ \
+		string label = "Phase Input", \
+		string help = "Animates the shader, or used as a seed.", \
+		string widget = "null", \
+	]], \
+	float in_phase_mul = 1.0 \
+	[[ \
+		string label = "Phase Multiplier", \
+		string help = "Used to scale phase.", \
+		int connectable = 0, \
+	]], \
+	float in_phase_offset = 0.0 \
+	[[ \
+		string label = "Phase Offset / Seed", \
+		string help = "A fixed amount added to phase. When in 'Constant Seed' mode, this is the value.", \
+		int connectable = 0, \
+	]]
+
+float fea_wgt_compute_phase(int mode, float ptime, float phase, float mul, float offset) {
+	float ret = 0.0;
+	if (mode == 0) {
+		// scene time
+		ret = ptime * mul + offset;
+	} else if (mode == 1) {
+		// phase input
+		ret = phase * mul + offset;
+	} else if (mode == 2) {
+		// seed
+		ret = offset;
+	}
+	return ret;
+}
+
+#define FEA_WGT_GET_PHASE \
+	fea_wgt_compute_phase(in_phase_mode, in_phase_time, in_phase_input, in_phase_mul, in_phase_offset)
+
+#endif // fea_widget_phase_osl
