@@ -13,7 +13,8 @@ shader TilingSimplex
 	string label = "Tiling Simplex",
 	string help	=
 		"<h3>Tiling Simplex</h3>"
-		"A tiling simplex noise.<br>Port of Stefan Gustavson's and Ian McEwan's GLSL implementation."
+		"A spacially and temporally tiling simplex noise.<br>"
+		"Port of Stefan Gustavson's and Ian McEwan's GLSL implementation."
 		,
 ]]
 (

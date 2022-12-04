@@ -11,23 +11,35 @@
  */
 
 // Converts a precentage to radian.
-// Expects percent 0.0 to 1.0.
 float fea_per_to_rad(float percent) {
 	return percent * M_2PI;
 }
 
 // Converts a radian to percentage.
-// Returns percent 0.0 to 1.0.
 float fea_rad_to_per(float rad) {
 	return rad * 0.15915494309189498;
 }
 
-float fea_deg_to_rad(float deg) {
-	return deg * 0.01745329251994330;
+// Converts a precentage to degree.
+float fea_per_to_deg(float percent) {
+	return percent * 360.0;
 }
 
-float fea_rad_to_deg(float r) {
-	return r * 57.295779513082321;
+// Converts a degree to percentage.
+float fea_deg_to_per(float deg) {
+	return deg * 0.00277777777777778;
+}
+
+// Converts a degree to radian.
+float fea_deg_to_rad(float deg) {
+	return radians(deg);
+	// return deg * 0.01745329251994330;
+}
+
+// Converts a radian to degree.
+float fea_rad_to_deg(float rad) {
+	return degrees(rad);
+	// return rad * 57.295779513082321;
 }
 
 // Given a radian angle, returns a 2d vector pointing
@@ -185,44 +197,4 @@ vector fea_ucos(vector x) {
 	return (cos(x) + 1.0) * 0.5;
 }
 
-
-/**
- * Algorithms & Typical coding
- */
-
-#define fea_swap(type, v1, v2) \
-{ \
-	type temp = v1; \
-	v1 = v2; \
-	v2 = temp; \
-}
-
-// #define fea_erase(arr, size, i) \
-// if (i < size) { \
-// 	arr[i] = arr[size - 1]; \
-// 	--size; \
-// }
-
-void fea_erase(output float data[], output int size, int i) {
-	if (i < size) {
-		data[i] = data[size - 1];
-		--size;
-	}
-}
-void fea_erase(output point data[], output int size, int i) {
-	if (i < size) {
-		data[i] = data[size - 1];
-		--size;
-	}
-}
-
-#define fea_runtime_array(struct_name, type, max_size) \
-struct struct_name { \
-	type data[max_size]; \
-	int size; \
-}; \
-\
-void fea_erase(output struct_name arr, int i) { \
-	fea_erase(arr.data, arr.size, i); \
-}
 #endif // fea_osl

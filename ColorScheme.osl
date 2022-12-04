@@ -5,124 +5,10 @@
 
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_color.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
 
 #define degs30 0.0833333333333333
 #define degs60 0.1666666666666667
-
-#define MIX_ARR_SIZE 4
-
-// TO MOVE
-
-// For max viewport, :/
-// TODO : Find an OK implementation, without bit fiddling.
-float fea_cbrt(float x) {
-	return pow(abs(x), 0.33333333333333333);
-}
-
-// Transforms a color from_space to_space.
-// Supports extra color spaces : "oklab", "okhcl" (oklab polar form)
-color fea_transformc(string from_space, string to_space, color in_col) {
-	if (from_space == to_space) {
-		return in_col;
-	}
-
-	// oklab transforms.
-	matrix m1 = matrix(
-		0.8189330101, 0.0329845436, 0.0482003018, 0,
-		0.3618667424, 0.9293118715, 0.2643662691, 0,
-		-0.1288597137, 0.0361456387, 0.6338517070, 0,
-		0, 0, 0, 1
-	);
-	matrix m1_inv = 1 / m1;
-
-	matrix m2 = matrix(
-		0.2104542553, 1.9779984951, 0.0259040371, 0,
-		0.7936177850, -2.4285922050, 0.7827717662, 0,
-		-0.0040720468, 0.4505937099, -0.8086757660, 0,
-		0, 0, 0, 1
-	);
-	matrix m2_inv = 1 / m2;
-
-	color oklab_to_xyz(point lab) {
-		point lms = transform(m2_inv, lab);
-		lms[0] = lms[0] * lms[0] * lms[0];
-		lms[1] = lms[1] * lms[1] * lms[1];
-		lms[2] = lms[2] * lms[2] * lms[2];
-		return transform(m1_inv, lms); // xyz
-	}
-
-	color xyz_to_oklab(point xyz) {
-		point lms = transform(m1, xyz);
-		lms[0] = fea_cbrt(lms[0]);
-		lms[1] = fea_cbrt(lms[1]);
-		lms[2] = fea_cbrt(lms[2]);
-		return transform(m2, lms); // oklab
-	}
-
-
-	// First, convert anything to xyz.
-	color ret = 0;
-	if (from_space == "oklab") {
-		ret = oklab_to_xyz(in_col);
-	} else if (from_space == "okhcl") {
-		color safe = color(
-			in_col[0],
-			clamp(in_col[1], 0.0, 1.0),
-			clamp(in_col[2], 0.0, 1.0)
-		);
-		float a = safe[1] * cos(fea_per_to_rad(safe[0]));
-		float b = safe[1] * sin(fea_per_to_rad(safe[0]));
-		color lab = color(safe[2], a, b);
-		ret = oklab_to_xyz(lab);
-	} else {
-		ret = transformc(from_space, "XYZ", in_col);
-	}
-
-	// At this point, we have an xyz color in ret.
-	// Do our custom conversion, fallback on OSL.
-	if (to_space == "oklab") {
-		ret = xyz_to_oklab(ret);
-	} else if (to_space == "okhcl") {
-		color lab = xyz_to_oklab(ret);
-		ret[0] = fea_rad_to_per(atan2(lab[2], lab[1]));
-		ret[1] = sqrt(lab[1] * lab[1] + lab[2] * lab[2]);
-		ret[2] = lab[0];
-	} else {
-		ret = transformc("XYZ", to_space, ret);
-	}
-
-	return ret;
-}
-
-// Transforms an "rgb" color to_space.
-color fea_transformc(string to_space, color in_col) {
-	return fea_transformc("rgb", to_space, in_col);
-}
-
-
-// Mixes (linearly blends) the colors as if equally spaced on a gradient.
-// Picks the 2 neighbouring colors of percentage (on this gradient).
-color fea_mix(color colors[], int arr_size, float percentage) {
-	int count = min(arraylength(colors), arr_size);
-	if (count <= 0) {
-		return color(0);
-	}
-	if (count == 1) {
-		return colors[0];
-	}
-	if (count == 2) {
-		return mix(colors[0], colors[1], percentage);
-	}
-
-	// Find the 2 colors to mix.
-	// for (int i = 0; i < arr_size; ++i) {
-	// }
-
-	return color(0);
-}
-
-
-
 
 // Given a hue and how many levels to output,
 // returns the closest multiple.
@@ -159,9 +45,9 @@ shader ColorScheme
 		string widget = "checkBox",
 	]],
 
-	FEA_SPACER(0),
+	// FEA_SPACER(0),
 
-	int in_color_mode = 3
+	int in_color_mode = 0
 	[[
 		string widget = "mapper",
 		string label = "Color Mode",
@@ -169,7 +55,6 @@ shader ColorScheme
 			"Simple Hue:0"
 			"|Heat Map:1"
 			"|Bright Burn:2"
-			"|Dark Burn:9"
 			"|Complements:3"
 			"|Analogous:4"
 			"|Split-Complementary:5"
@@ -179,70 +64,20 @@ shader ColorScheme
 			,
 		string help = "The output 'Color' algorithm to use.",
 		int connectable = 0,
-	]],
-
-	color in_base_color = 1
-	[[
-		string label = "Base Color",
-		string help = "The schemes are generated according to this color.",
-		// string packName = "Base Color / Hue",
-		// int widgetWidth = FEA_RPACK_W,
+		string packName = "Color Mode / Hue",
 	]],
 
 	float in_hue = 0
 	[[
 		string label = "Hue",
-		string help = "Cycles through available hues. Added for ease of use, as this can be accomplished using the 'Base Color'.",
-		// string packName = "Base Color / Hue",
-		// int widgetWidth = FEA_RPACK_W,
+		string help = "Cycles through available hues.",
+		// float min = 0,
+		// float max = 1,
+		string packName = "Color Mode / Hue",
+		int widgetWidth = FEA_RPACK_W,
 	]],
 
 	FEA_SPACER(1),
-
-	float in_primary_saturation = 0.0
-	[[
-		string label = "Primary Saturation",
-		string help = "Increases or decreases saturation of the primary 'knot' colors.",
-		// float min = -1.0,
-		// float max = 1.0,
-		string packName = "Primary Saturation / Lightness",
-	]],
-
-	float in_primary_lightness = 0.0
-	[[
-		string label = "Primary Lightness",
-		string help = "Increases or decreases lightness of the primary 'knot' colors.",
-		// float min = -1.0,
-		// float max = 1.0,
-		string packName = "Primary Saturation / Lightness",
-	]],
-
-	float in_blend_saturation = 0.0
-	[[
-		string label = "Blend Saturation",
-		string help = "Increases or decreases saturation of the gradient 'mix' colors.",
-		// float min = -1.0,
-		// float max = 1.0,
-		string packName = "Blend Saturation / Lightness",
-	]],
-
-	float in_blend_lightness = 0.0
-	[[
-		string label = "Blend Lightness",
-		string help = "Increases or decreases lightness of the gradient 'mix' colors.",
-		// float min = -1.0,
-		// float max = 1.0,
-		string packName = "Blend Saturation / Lightness",
-	]],
-
-	float in_seperation_interp = 0.0
-	[[
-		string label = "Primary / Blend Interpolation",
-		string help = "The interpolation used to isolate primary / blend colors.<br>"
-			"Positive is exponential, negative is logarithmic and '0' is linear interpolation (none).",
-	]],
-
-	FEA_SPACER(2),
 
 	int in_step_amount = 6
 	[[
@@ -290,151 +125,91 @@ shader ColorScheme
 	output color Out = 0
 )
 {
-	// The grayscale input.
 	float val = clamp(In, 0.0, 1.0);
+	val = in_invert ? 1.0 - val : val;
 
-	// The user input color, in hsv space.
-	color base_color = fea_transformc("okhcl", in_base_color);
+	float hue = in_hue;
+	float hsv_v = 1.0;
 
-	// Prepare the base_color according to inputs.
-	{
-		val = in_invert ? 1.0 - val : val;
+	if (in_contours && val != 0.0 && val != 1.0) {
+		float c_multiple = 1.0 / float(in_step_amount);
+		float c_mod = fmod(val, c_multiple);
+		float c_width = in_contour_width * 0.01;
 
-		if (in_contours && val != 0.0 && val != 1.0) {
-			float c_multiple = 1.0 / float(in_step_amount);
-			float c_mod = fmod(val, c_multiple);
-			float c_width = in_contour_width * 0.01;
-
-			if (in_smooth_contours) {
-				float high_w = c_width * 2.0;
-				base_color[2] = smoothstep(c_width, high_w, c_mod);
-				base_color[2] -= smoothstep(c_multiple - high_w, c_multiple - c_width, c_mod);
-			} else {
-				if (c_mod < c_width || c_mod > c_multiple - c_width) {
-					base_color[1] = 0.0;
-					base_color[2] = 0.0;
-				}
+		if (in_smooth_contours) {
+			float high_w = c_width * 2.0;
+			hsv_v = smoothstep(c_width, high_w, c_mod);
+			hsv_v -= smoothstep(c_multiple - high_w, c_multiple - c_width, c_mod);
+		} else {
+			if (c_mod < c_width || c_mod > c_multiple - c_width) {
+				hsv_v = 0.0;
 			}
 		}
-
-		// Step
-		if (in_flatten != 0) {
-			val = flattenize(in_step_amount, val);
-		}
-
-		base_color[0] += in_hue;
-
-		// TODO : move to interpolation code.
-		{
-			// 0 when at 50/50 mix, 1 at extremeties.
-			float primary_strength = abs(val * 2.0 - 1.0);
-
-			// 1 when at 50/50 mix, 0 at extremeties.
-			float blend_strength = 1.0 - primary_strength;
-
-			primary_strength = fea_interp(in_seperation_interp, primary_strength);
-			blend_strength = fea_interp(in_seperation_interp, blend_strength);
-
-			base_color[1] += in_primary_saturation * primary_strength;
-			base_color[1] += in_blend_saturation * blend_strength;
-
-			base_color[2] += in_primary_lightness * primary_strength;
-			base_color[2] += in_blend_lightness * blend_strength;
-		}
-
-		// if (in_saturate_mix) {
-		// 	// Isolate center colors and bump saturation.
-		// 	float m = 1.0 - abs(val * 2.0 - 1.0);
-		// 	base_color[1] *= m;
-		// }
 	}
 
-	int out_colors_size = 0;
-	color out_colors[MIX_ARR_SIZE];
-	// float out_mix_point[MIX_ARR_SIZE];
-
-
-	void add_color(color c) {
-		out_colors[out_colors_size++] = fea_transformc("okhcl", "oklab", c);
-		// out_colors[out_colors_size++] = c;
+	// Step
+	if (in_flatten != 0) {
+		val = flattenize(in_step_amount, val);
 	}
 
+	color out_col;
 	if (in_color_mode == 0) {
-		// simple hue
-		base_color[0] += val;
-		add_color(base_color);
+		// hsv
+		// float col = fmod(val + hue, 1);
+		float col = val + hue;
+		out_col = color("hsv", col, 1, hsv_v);
 	} else if (in_color_mode == 1) {
 		// heat map
-		base_color[0] += val * 0.5;
-		base_color[2] += val * 0.5;
-		add_color(base_color);
+		float offset = 0.5 + degs60 + hue;
+		float col = offset + val * 0.5;
+		out_col = color("hsv", col, 1, hsv_v);
 	} else if (in_color_mode == 2) {
 		// bright burn
-		float mv = val * 0.569;
-		base_color[0] += mv;
-		base_color[1] -= mv * 0.5;
-		base_color[2] += mv;
-		add_color(base_color);
-	} else if (in_color_mode == 9) {
-		// dark burn
-		float mv = val * 0.569;
-		base_color[0] += mv;
-		base_color[1] -= mv * 0.5;
-		base_color[2] -= mv;
-		add_color(base_color);
+		float g = 0.618033988749895;
+		float col = val * 0.569 + g + hue;
+		float s = 1.0 - val;
+
+		if (in_flatten) {
+			s = flattenize(in_step_amount, s);
+		}
+
+		out_col = color("hsv", col, s, hsv_v);
 	} else if (in_color_mode == 3) {
 		// complements
-		add_color(base_color);
-
-		base_color[0] += 0.5 * val;
-		add_color(base_color);
+		color start_col = color("hsv", hue, 1, hsv_v);
+		color end_col = color("hsv", 0.5 + hue, 1, hsv_v);
+		out_col = mix(start_col, end_col, val);
 	} else if (in_color_mode == 4) {
 		// analogous
-		base_color[0] += val * degs60;
-
-		add_color(base_color);
-
-		// float col = fmod(val * degs60 + hue, 1) ;
-		// out_col = color("hsv", col, 1, hsv_v);
-	// } else if (in_color_mode == 5) {
-	// 	// split complementary
-	// 	color c1 = color("hsv", hue, 1, hsv_v);
-	// 	color c2 = color("hsv", 0.5 + degs30 + hue, 1, hsv_v);
-	// 	color c3 = color("hsv", 0.5 - degs30 + hue, 1, hsv_v);
-	// 	out_col = fea_mix(c1, c2, c3, val);
-	// } else if (in_color_mode == 6) {
-	// 	// triad
-	// 	color c1 = color("hsv", hue, 1, hsv_v);
-	// 	color c2 = color("hsv", 0.25 + degs30 + hue, 1, hsv_v);
-	// 	color c3 = color("hsv", 0.75 - degs30 + hue, 1, hsv_v);
-	// 	out_col = fea_mix(c1, c3, c2, val);
-	// } else if (in_color_mode == 7) {
-	// 	// tetradic
-	// 	color c1 = color("hsv", (1 / 12.0) + hue, 1, hsv_v);
-	// 	color c2 = color("hsv", 0.5 - degs30 + hue, 1, hsv_v);
-	// 	color c3 = color("hsv", 0.5 + degs30 + hue, 1, hsv_v);
-	// 	color c4 = color("hsv", 1.0 - degs30 + hue, 1, hsv_v);
-	// 	out_col = fea_mix(c1, c4, c2, c3, val);
-	// } else if (in_color_mode == 8) {
-	// 	// square
-	// 	color c1 = color("hsv", hue, 1, hsv_v);
-	// 	color c2 = color("hsv", 0.25 + hue, 1, hsv_v);
-	// 	color c3 = color("hsv", 0.5 + hue, 1, hsv_v);
-	// 	color c4 = color("hsv", 0.75 + hue, 1, hsv_v);
-	// 	out_col = fea_mix(c1, c3, c4, c2, val);
+		float col = fmod(val * degs60 + hue, 1) ;
+		out_col = color("hsv", col, 1, hsv_v);
+	} else if (in_color_mode == 5) {
+		// split complementary
+		color c1 = color("hsv", hue, 1, hsv_v);
+		color c2 = color("hsv", 0.5 + degs30 + hue, 1, hsv_v);
+		color c3 = color("hsv", 0.5 - degs30 + hue, 1, hsv_v);
+		out_col = fea_mix(c1, c2, c3, val);
+	} else if (in_color_mode == 6) {
+		// triad
+		color c1 = color("hsv", hue, 1, hsv_v);
+		color c2 = color("hsv", 0.25 + degs30 + hue, 1, hsv_v);
+		color c3 = color("hsv", 0.75 - degs30 + hue, 1, hsv_v);
+		out_col = fea_mix(c1, c3, c2, val);
+	} else if (in_color_mode == 7) {
+		// tetradic
+		color c1 = color("hsv", (1 / 12.0) + hue, 1, hsv_v);
+		color c2 = color("hsv", 0.5 - degs30 + hue, 1, hsv_v);
+		color c3 = color("hsv", 0.5 + degs30 + hue, 1, hsv_v);
+		color c4 = color("hsv", 1.0 - degs30 + hue, 1, hsv_v);
+		out_col = fea_mix(c1, c4, c2, c3, val);
+	} else if (in_color_mode == 8) {
+		// square
+		color c1 = color("hsv", hue, 1, hsv_v);
+		color c2 = color("hsv", 0.25 + hue, 1, hsv_v);
+		color c3 = color("hsv", 0.5 + hue, 1, hsv_v);
+		color c4 = color("hsv", 0.75 + hue, 1, hsv_v);
+		out_col = fea_mix(c1, c3, c4, c2, val);
 	}
 
-	// Out = transformc("hsv", "rgb", fea_mix(out_colors, out_colors_size, val));
-	Out = fea_transformc("oklab", "rgb", fea_mix(out_colors, out_colors_size, val));
-
-	// test
-	{
-		// point coord = P / 100.0;
-		// color lch = fea_transformc("okhcl", in_base_color);
-		// lch[0] -= coord.x;
-		// Out = fea_transformc("okhcl", "rgb", lch);
-
-		// color test = fea_transformc("oklab", in_base_color);
-		// Out = test;
-	}
+	Out = out_col;
 }
