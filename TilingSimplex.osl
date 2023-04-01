@@ -80,21 +80,38 @@ shader TilingSimplex
 	FEA_WGT_PHASE_INPUTS,
 	FEA_WGT_UVW_INPUTS,
 
-	output color Out = 0,
-	output color Gradient = 0,
-	output color SecondDeriv = 0,
-	output color SecondDeriv2 = 0,
-	output color Fun = 0
+	output color out_col = 0
+	[[
+		string label = "Out (color)"
+	]],
+	output float out_float = 0
+	[[
+		string label = "Out (float)"
+	]],
+	output vector out_gradient = 0
+	[[
+		string label = "Gradient (vector)"
+	]],
+	output vector out_second_deriv = 0
+	[[
+		string label = "2nd Derivative (vector)"
+	]],
+	output vector out_second_deriv2 = 0
+	[[
+		string label = "2nd Derivative 2 (vector)"
+	]]
 )
 {
 	point coord = FEA_WGT_GET_UVW;
 	float phase = FEA_WGT_GET_PHASE;
 
 	fea_tsimplex_ret ret = fea_utsimplex_fbm(coord, in_fbm_octaves, in_lacunarity, in_tiling, phase);
-	ret.value = fea_lerp(ret.value, in_low_clamp, in_high_clamp, 0, 1);
+	ret.value = fea_lerp(ret.value, 0, 1, in_low_clamp, in_high_clamp);
 
-	Out = mix(in_low_color, in_high_color, ret.value);
-	Gradient = ret.gradient;
-	SecondDeriv = ret.dg;
-	SecondDeriv2 = ret.dg2;
+	out_col = mix(in_low_color, in_high_color, ret.value);
+
+	out_float = ret.value;
+	out_gradient = ret.gradient;
+	out_second_deriv = ret.dg;
+	out_second_deriv2 = ret.dg2;
 }
