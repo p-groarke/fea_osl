@@ -74,52 +74,69 @@ vector fea_floor_to(vector val, float decimal_mul) {
 }
 
 // Given x in the range [a, b], converts to percentage.
-float fea_to_percent(float x, float a, float b) {
-	float ret = clamp(x, a, b);
-	return (ret - a) / (b - a);
+//
+// That is, if x == a, returns 0, if x == b, return 1.
+float fea_per(float x, float a, float b) {
+	return (x - a) / (b - a);
+}
+
+// Given x in the range [a, b], returns the inverse percentage.
+//
+// That is, if x == a, returns 1, if x == b, return 0.
+float fea_per_inv(float x, float a, float b) {
+	return (b - x) / (b - a);
 }
 
 // Linearly interpolate x between a and b.
 // x is clamped to [0, 1].
 float fea_lerp(float x, float a, float b) {
-	float per = clamp(x, 0.0, 1.0);
-	return a + per * (b - a);
+	return a + x * (b - a);
+	// return (1.0 - x) * a + x * b;
+}
+// color fea_lerp(float x, color a, color b) {
+// 	return color(
+// 		fea_lerp(x, a[0], b[0]),
+// 		fea_lerp(x, a[1], b[1]),
+// 		fea_lerp(x, a[2], b[2])
+// 	);
+// }
+
+// Given an input x and a crest point >= 0,
+// creates an inverted V-shaped graph where maximum = crest point.
+float fea_corner_inflection(float x, float crest_point) {
+	float cp = crest_point < 0.0 ? 0.0 : crest_point;
+	return 1.0 - (abs(cp - x) / cp);
 }
 
 // With x in the range [from_a, from_b], lerp to the range [to_a, to_b].
 // Aka, lerp where x is not between 0, 1.
-// x is clamped to [from_a, from_b].
 float fea_lerp(float x, float from_a, float from_b, float to_a, float to_b) {
 	// Remap x into percentage.
-	float per = fea_to_percent(x, from_a, from_b);
+	float per = fea_per(x, from_a, from_b);
 
 	// Typical lerp.
-	return to_a + per * (to_b - to_a);
+	return fea_lerp(x, to_a, to_b);
 }
 
 
 // Staircase interpolate x between a and b, according to steps.
-// x is clamped to [0, 1].
 float fea_staircase_interp(float x, int in_steps, float a, float b) {
 	float steps = float(in_steps);
-
-	float per = clamp(x, 0.0, 1.0);
-	per = round(x * steps) / steps;
-	return a + per * (b - a);
+	float per = round(x * steps) / steps;
+	return fea_lerp(per, a, b);
 }
 
 // With x in the range [from_a, from_b], staircase interpolate
 // to the range [to_a, to_b].
 // Aka, staircase_interp where x is not between 0, 1.
 // x is clamped to [from_a, from_b].
-float fea_staircase_interp(float x, int in_steps, float from_a, float from_b, float to_a, float to_b) {
-	float steps = float(in_steps);
-
-	float per = fea_to_percent(x, from_a, from_b);
-	per = round(x * steps) / steps;
-	return to_a + per * (to_b - to_a);
+float fea_staircase_interp(float x, int in_steps, float from_a, float from_b,
+		float to_a, float to_b) {
+	// Remap x into percentage.
+	float per = fea_per(x, from_a, from_b);
+	// Typical interpolation.
+	return fea_staircase_interp(per, in_steps, to_a, to_b);
 }
-
 
 // Interpolates x, according to the k control, between a and b.
 //
@@ -134,8 +151,8 @@ float fea_interp(float x, float k, float a, float b) {
 		return fea_lerp(x, a, b);
 	}
 
-	float per = clamp(x, 0.0, 1.0);
-	return a + ((exp(k * per) - 1.0) / (exp(k) - 1.0)) * (b - a);
+	float per = (exp(k * x) - 1.0) / (exp(k) - 1.0);
+	return fea_lerp(per, a, b);
 }
 
 // With x in the range [from_a, from_b],
@@ -149,15 +166,11 @@ float fea_interp(float x, float k, float a, float b) {
 //
 // https://www.desmos.com/calculator/og836nvwmx
 float fea_interp(float x, float k, float from_a, float from_b, float to_a, float to_b) {
-	if (k == 0.0) {
-		return fea_lerp(x, from_a, from_b, to_a, to_b);
-	}
-
 	// Remap x into percentage.
-	float per = fea_to_percent(x, from_a, from_b);
+	float per = fea_per(x, from_a, from_b);
 
-	// Typical interpolation.
-	return to_a + ((exp(k * per) - 1.0) / (exp(k) - 1.0)) * (to_b - to_a);
+	// Typical interp.
+	return fea_interp(per, k, to_a, to_b);
 }
 
 // Original func, legacy.

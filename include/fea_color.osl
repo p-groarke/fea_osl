@@ -175,6 +175,41 @@ color fea_transformc(string from_space, string to_space, color in_col) {
 		return in_col;
 	}
 
+	// Returned color.
+	color ret = 0;
+
+	color oklab_to_okhcl(color lab) {
+		color ret;
+		ret[0] = fea_rad_to_per(atan2(lab[2], lab[1]));
+		ret[1] = sqrt(lab[1] * lab[1] + lab[2] * lab[2]);
+		ret[2] = lab[0];
+		return ret;
+	}
+
+	color okhcl_to_oklab(color hcl) {
+		color safe = color(
+			hcl[0],
+			clamp(hcl[1], 0.0, 1.0),
+			clamp(hcl[2], 0.0, 1.0)
+			// hcl[1],
+			// hcl[2]
+		);
+		float a = safe[1] * cos(fea_per_to_rad(safe[0]));
+		float b = safe[1] * sin(fea_per_to_rad(safe[0]));
+		return color(safe[2], a, b);
+	}
+
+	// Perf shortcuts.
+	if (from_space == "oklab" && to_space == "okhcl") {
+		ret = oklab_to_okhcl(in_col);
+		return ret;
+	}
+
+	if (from_space == "okhcl" && to_space == "oklab") {
+		ret = okhcl_to_oklab(in_col);
+		return ret;
+	}
+
 	// oklab transforms.
 	matrix m1 = matrix(
 		0.8189330101, 0.0329845436, 0.0482003018, 0.0,
@@ -220,18 +255,10 @@ color fea_transformc(string from_space, string to_space, color in_col) {
 
 
 	// First, convert anything to xyz.
-	color ret = 0;
 	if (from_space == "oklab") {
 		ret = oklab_to_xyz(in_col);
 	} else if (from_space == "okhcl") {
-		color safe = color(
-			in_col[0],
-			clamp(in_col[1], 0.0, 1.0),
-			clamp(in_col[2], 0.0, 1.0)
-		);
-		float a = safe[1] * cos(fea_per_to_rad(safe[0]));
-		float b = safe[1] * sin(fea_per_to_rad(safe[0]));
-		color lab = color(safe[2], a, b);
+		color lab = okhcl_to_oklab(in_col);
 		ret = oklab_to_xyz(lab);
 	} else {
 		ret = transformc(from_space, "XYZ", in_col);
@@ -243,9 +270,7 @@ color fea_transformc(string from_space, string to_space, color in_col) {
 		ret = xyz_to_oklab(ret);
 	} else if (to_space == "okhcl") {
 		color lab = xyz_to_oklab(ret);
-		ret[0] = fea_rad_to_per(atan2(lab[2], lab[1]));
-		ret[1] = sqrt(lab[1] * lab[1] + lab[2] * lab[2]);
-		ret[2] = lab[0];
+		ret = oklab_to_okhcl(lab);
 	} else {
 		ret = transformc("XYZ", to_space, ret);
 	}
@@ -261,23 +286,23 @@ color fea_transformc(string to_space, color in_col) {
 // Given the 3 colors and a precentage,
 // mix between them (1/3 per color).
 color fea_mix(color c1, color c2, color c3, float p) {
-	float p1 = clamp(p * 2 - 1, 0, 1);
+	float p1 = clamp(p * 2.0 - 1.0, 0.0, 1.0);
 	color temp = mix(c2, c3, p1);
 
-	float p2 = clamp(p * 2, 0, 1);
+	float p2 = clamp(p * 2.0, 0.0, 1.0);
 	return mix(c1, temp, p2);
 }
 
 // Given the 4 colors and a precentage,
 // mix between them (1/4 per color).
 color fea_mix(color c1, color c2, color c3, color c4, float p) {
-	float p1 = clamp(p * 3 - 2, 0, 1);
+	float p1 = clamp(p * 3.0 - 2.0, 0.0, 1.0);
 	color temp1 = mix(c3, c4, p1);
 
-	float p2 = clamp(p * 3 - 1, 0, 1);
+	float p2 = clamp(p * 3.0 - 1.0, 0.0, 1.0);
 	color temp2 = mix(c2, temp1, p2);
 
-	float p3 = clamp(p * 3, 0, 1);
+	float p3 = clamp(p * 3.0, 0.0, 1.0);
 	return mix(c1, temp2, p3);
 }
 

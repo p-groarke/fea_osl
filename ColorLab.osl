@@ -13,14 +13,78 @@
 
 // TO MOVE
 
+// Given x, an alpha constant (0.5 == centripetal), and 4 points.
+// Computes the catmull-rom interpolation of the point at x.
+//
+// https://en.wikipedia.org/wiki/Centripetal_Catmull%E2%80%93Rom_spline
+point fea_catmull_rom(float x, float alpha,
+		point p0, point p1, point p2, point p3) {
+
+	float get_t(float y, float alpha, point p0, point p1) {
+		vector dir = p1 - p0;
+		float a = dot(dir, dir); // sqr mag
+		float b = pow(a, alpha * 0.5);
+		return b + y;
+	}
+
+	// Get the tees.
+	// This effectively remaps (or transforms) the knot positions
+	// into a not-necessarily-uniform space.
+	// Which gives more or less importance to the curves before
+	// and after our desired segment.
+	float t0 = 0.0;
+	float t1 = get_t(t0, alpha, p0, p1);
+	float t2 = get_t(t1, alpha, p1, p2);
+	float t3 = get_t(t2, alpha, p2, p3);
+	float t = fea_lerp(x, t1, t2);
+
+	// Weigh the points given t's percentage (or inverse percentage)
+	// along the ranges.
+	point a1 = fea_per_inv(t, t0, t1) * p0 + fea_per(t, t0, t1) * p1;
+	point a2 = fea_per_inv(t, t1, t2) * p1 + fea_per(t, t1, t2) * p2;
+	point a3 = fea_per_inv(t, t2, t3) * p2 + fea_per(t, t2, t3) * p3;
+	point b1 = fea_per_inv(t, t0, t2) * a1 + fea_per(t, t0, t2) * a2;
+	point b2 = fea_per_inv(t, t1, t3) * a2 + fea_per(t, t1, t3) * a3;
+	point c  = fea_per_inv(t, t1, t2) * b1 + fea_per(t, t1, t2) * b2;
+	return c;
+}
+
+float fea_catmull_rom(float x, float alpha,
+		float p0, float p1, float p2, float p3) {
+
+	float get_t(float y, float alpha, float p0, float p1) {
+		float dir = p1 - p0;
+		float a = dir * dir; // sqr mag
+		float b = pow(a, alpha * 0.5);
+		return b + y;
+	}
+
+	// Get the tees.
+	float t0 = 0.0;
+	float t1 = get_t(t0, alpha, p0, p1);
+	float t2 = get_t(t1, alpha, p1, p2);
+	float t3 = get_t(t2, alpha, p2, p3);
+	float t = fea_lerp(x, t1, t2);
+
+	// Weigh the points given t's percentage (or inverse percentage)
+	// along the ranges.
+	float a1 = fea_per_inv(t, t0, t1) * p0 + fea_per(t, t0, t1) * p1;
+	float a2 = fea_per_inv(t, t1, t2) * p1 + fea_per(t, t1, t2) * p2;
+	float a3 = fea_per_inv(t, t2, t3) * p2 + fea_per(t, t2, t3) * p3;
+	float b1 = fea_per_inv(t, t0, t2) * a1 + fea_per(t, t0, t2) * a2;
+	float b2 = fea_per_inv(t, t1, t3) * a2 + fea_per(t, t1, t3) * a3;
+	float c  = fea_per_inv(t, t1, t2) * b1 + fea_per(t, t1, t2) * b2;
+	return c;
+}
+
 
 // Represents an absolute value knot in a gradient.
 struct fea_knot_info {
-	color hcl; // Absolute okhcl color.
+	color lab; // Absolute oklab color.
 	float position; // The knot position on a [0, 1] percentage ramp.
 };
 void fea_init(output fea_knot_info out) {
-	out.hcl = 0;
+	out.lab = 0;
 	out.position = 0.0;
 }
 
@@ -30,50 +94,116 @@ void fea_init(output fea_knot_info out) {
 		"|Catmull-Rom:2" \
 		"|Monotone Cubic:3"
 
-#define fea_gradient_mix_opts \
-		"Oklab:0" \
-		"|Okhcl:1"
-
 // Represents the "in-between" gradient of 2 knots.
 struct fea_gradient_info {
-	int mode; // Interpolation of this gradient.
-	int mix_mode; // Oklab or Okhcl mixing.
+	int interp_mode; // Interpolation of this gradient.
 	int steps; // For staircase, 0 == constant.
 	float border_width; // Staircase border width.
-
-	vector offset; // Added in between knots.
+	color cl_boost; // Added in between knots.
 };
 void fea_init(output fea_gradient_info out) {
-	out.mode = 0;
+	out.interp_mode = 0;
 	out.steps = 0;
-	out.mix_mode = 0;
-	out.offset = 0;
+	out.border_width = 1.0;
+	out.cl_boost = 0;
 }
 
 fea_define_array(fea_knot_info, 4)
 fea_define_array(fea_gradient_info, 3)
 
-// Mixes 2 knots, according to the gradient options (color space, offset, etc).
+
+// Boosts the lab color according to x percent, using gradient g.
+// Returns lab color.
+color fea_gradient_boost(float x, fea_gradient_info g, color lab) {
+	color ret = fea_transformc("oklab", "okhcl", lab);
+	float w = fea_corner_inflection(x, 0.5);
+
+	// Chroma
+	ret[1] = mix(ret[1], ret[1] + g.cl_boost[1], w);
+
+	// Lightness
+	ret[2] = mix(ret[2], ret[2] + g.cl_boost[2], w);
+	return fea_transformc("okhcl", "oklab", ret);
+}
+
+// Linear gradient for provided knots and gradient.
+// Expects x from [0, 1].
 // Returns an hcl value.
-color fea_mix(fea_knot_info k1, fea_gradient_info g, fea_knot_info k2, float p) {
-	color ret;
-	if (g.mix_mode == 0) {
-		// oklab
-		color a = fea_transformc("okhcl", "oklab", k1.hcl);
-		color b = fea_transformc("okhcl", "oklab", k2.hcl);
-		ret = mix(a, b, p);
-		ret = fea_transformc("oklab", "okhcl", ret);
-	} else {
-		// okhcl
-		color a = k1.hcl;
-		color b = k2.hcl;
-		ret = mix(a, b, p);
+color fea_linear_gradient(float x, fea_knot_info k1, fea_gradient_info g,
+		fea_knot_info k2) {
+	color ret = mix(k1.lab, k2.lab, x);
+	ret = fea_gradient_boost(x, g, ret);
+	return ret;
+}
+
+// Staircase gradient for provided knots and gradient.
+// Expects x from [0, 1].
+// Returns an hcl value.
+color fea_staircase_gradient(float x, fea_knot_info k1, fea_gradient_info g,
+		fea_knot_info k2) {
+	float p = fea_staircase_interp(x, g.steps, 0.0, 1.0);
+	return fea_linear_gradient(p, k1, g, k2);
+}
+
+// Catmull-rom spline gradient for provided knots and gradient.
+// Expects x from [0, 1].
+// Returns an lab value.
+color fea_catmull_gradient(float x, fea_knot_info k0, fea_gradient_info g0,
+		fea_knot_info k1, fea_gradient_info g1,
+		fea_knot_info k2, fea_gradient_info g2,
+		fea_knot_info k3) {
+
+	color c0 = k0.lab;
+	color c1 = k1.lab;
+	color c2 = k2.lab;
+	color c3 = k3.lab;
+
+	color ret = 0;
+	for (int i = 0; i < 3; ++i) {
+		// Run the interpolation in 2d, with position interpreted as x.
+		point interp = fea_catmull_rom(x, 0.5,
+			point(k0.position, c0[i], 0),
+			point(k1.position, c1[i], 0),
+			point(k2.position, c2[i], 0),
+			point(k3.position, c3[i], 0)
+		);
+
+		ret[i] = interp[1];
 	}
 
-	// 0.5 is maximum blend, where-as extremities have no boost.
-	float midpoint_weight = 1.0 - abs((p * 2.0) - 1.0);
-	ret[1] += g.offset[1] * midpoint_weight;
-	ret[2] += g.offset[2] * midpoint_weight;
+	// Also blend gradient boost with catmull-rom interpolation.
+	{
+		float mid_point = (k2.position - k1.position) * 0.5;
+		float new_x;
+		if (x < 0.5) {
+			// drop k3
+			new_x = fea_catmull_rom(x, 0.5,
+				k0.position,
+				k1.position,
+				mid_point,
+				k2.position
+			);
+		} else {
+			// drop k0
+			new_x = fea_catmull_rom(x, 0.5,
+				k1.position,
+				mid_point,
+				k2.position,
+				k3.position
+			);
+		}
+
+		// test
+		{
+			// new_x = fea_per(ret[0], k1.hcl[0], k2.hcl[0]);
+			// new_x = mix(k1.hcl[0], k2.hcl[0], 0.5) - ret[0];
+		}
+
+		// We have the correct x, remap that to percentage.
+		float p = fea_per(new_x, k1.position, k2.position);
+		ret = fea_gradient_boost(p, g1, ret);
+	}
+
 	return ret;
 }
 
@@ -86,7 +216,7 @@ color fea_mix(fea_knot_info k1, fea_gradient_info g, fea_knot_info k2, float p) 
 // Expects the gradients' array size to be knot_size - 1.
 //
 // Return color space : okhcl
-color fea_hcl_interpolate(float in_coord,
+color fea_lab_interpolate(float in_coord,
 		fea_knot_info knots[], int in_knot_size,
 		fea_gradient_info gradients[]) {
 	int knot_size = min(arraylength(knots), in_knot_size);
@@ -95,16 +225,16 @@ color fea_hcl_interpolate(float in_coord,
 	}
 
 	if (knot_size == 1) {
-		return knots[0].hcl;
+		return knots[0].lab;
 	}
 
 	if (in_coord <= knots[0].position) {
-		return knots[0].hcl;
+		return knots[0].lab;
 	}
 
 	int last_idx = knot_size - 1;
 	if (in_coord >= knots[last_idx].position) {
-		return knots[last_idx].hcl;
+		return knots[last_idx].lab;
 	}
 
 	// Find the surrounding knots and gradients for later interpolation.
@@ -117,6 +247,8 @@ color fea_hcl_interpolate(float in_coord,
 	fea_knot_info knot3;
 
 	{
+		float eps = 0.5;
+
 		int i;
 		for (i = 0; i < last_idx; ++i) {
 			if (in_coord >= knots[i].position && in_coord < knots[i + 1].position) {
@@ -134,31 +266,40 @@ color fea_hcl_interpolate(float in_coord,
 		knot2 = knots[i2];
 		knot3 = knots[i3];
 
+		// Fudge the before / after positions if we are only interpolating
+		// 2 (or 3) points.
+		if (i0 == i1) {
+			knot0.position -= eps;
+		}
+		if (i2 == i3) {
+			knot3.position += eps;
+		}
+
 		gradient0 = gradients[i0];
 		gradient1 = gradients[i1];
 		gradient2 = gradients[i2];
 	}
 
 	// Convert to percentage ramp between surrounding knots.
-	float local_coord = fea_to_percent(in_coord, knot1.position, knot2.position);
+	float local_coord = fea_per(in_coord, knot1.position, knot2.position);
 
-	color ret;
-	if (gradient1.mode == 0) {
+	if (gradient1.interp_mode == 0) {
 		// linear
-		ret = fea_mix(knot1, gradient1, knot2, local_coord);
-	} else if (gradient1.mode == 1) {
-		// staircase
-		float p = fea_staircase_interp(local_coord, gradient1.steps, 0.0, 1.0);
-		ret = fea_mix(knot1, gradient1, knot2, p);
-	} else {
-		for (int i = 0; i < 3; ++i) {
-			// if ()
-		}
+		return fea_linear_gradient(local_coord, knot1, gradient1, knot2);
 	}
 
-	return ret;
-}
+	if (gradient1.interp_mode == 1) {
+		// staircase
+		return fea_staircase_gradient(local_coord, knot1, gradient1, knot2);
+	}
 
+	if (gradient1.interp_mode == 2) {
+		// catmull-rom
+		return fea_catmull_gradient(local_coord, knot0, gradient0, knot1, gradient1, knot2, gradient2, knot3);
+	}
+
+	return 0;
+}
 
 // 		"Simple Hue:0"
 // 		"|Heat Map:1"
@@ -212,6 +353,13 @@ shader ColorLab
 		string widget = "checkBox",
 	]],
 
+	int in_debug_out_of_range = 0
+	[[
+		string label = "Debug Out-of-range Colors",
+		string help = "",
+		int connectable = 0,
+		string widget = "checkBox",
+	]],
 
 	FEA_SPACER(0),
 	FEA_TITLE(0, "Knot 1 (Base Knot)"),
@@ -235,26 +383,17 @@ shader ColorLab
 		string help = "The absolute color value used in absolute mode.",
 	]],
 
-	vector in_k1_hcl_offset = 0
+	vector in_k1_hcl_offset = vector(0, 0.0, 0.0)
 	[[
 		string label = "K1 - HCL Offset",
 		string help = "The offset values added to the 'Base Color' map.<br>"
-				"Note : The Hue value is in degrees [0, 360], "
-				"whereas the Chroma and Lightness values are in percentage [0, 1].",
+				"Hue (degrees) : [0, 360]<br>"
+				"Chroma (percentage) : [0, 1]<br>"
+				"Lightness (percentage) : [0, 1]",
 	]],
 
 	FEA_SPACER(1),
 	FEA_TITLE(1, "Gradient 1"),
-
-	int in_g1_mix_mode = 0
-	[[
-		string widget = "mapper",
-		string label = "G1 - Mix Mode",
-		string options =
-			fea_gradient_mix_opts,
-		string help = "The interpolation color space. HCL produces interesting but unexpected results.",
-		int connectable = 0,
-	]],
 
 	int in_g1_interp_mode = 0
 	[[
@@ -285,12 +424,16 @@ shader ColorLab
 	[[
 		string label = "G1 - Chroma Boost",
 		string help = "Adds (or substracts) from chroma during interpolation.",
+		float min = -1.0,
+		float max = 1.0,
 	]],
 
 	float in_g1_lightness_boost = 0.0
 	[[
 		string label = "G1 - Lightness Boost",
 		string help = "Adds (or substracts) from lightness during interpolation.",
+		float min = -1.0,
+		float max = 1.0,
 	]],
 
 
@@ -354,33 +497,33 @@ shader ColorLab
 	// Knot 1 is special snowflake.
 	{
 		fea_knot_info knot;
-		knot.position = 0.0;
+		knot.position = 0;
 
 		if (in_k1_mode == 0) {
 			// absolute
-			color col = fea_transformc("okhcl", in_k1_color);
-			knot.hcl = col;
+			knot.lab = fea_transformc("oklab", in_k1_color);
 		} else {
 			// relative, make absolute using base color map.
 			color col = fea_transformc("okhcl", in_base_color);
-			knot.hcl = color(
+			col = color(
 				fea_deg_to_per(in_k1_hcl_offset[0]) + col[0],
 				in_k1_hcl_offset[1] + col[1],
 				in_k1_hcl_offset[2] + col[2]
 			);
+			knot.lab = fea_transformc("okhcl", "oklab", col);
 		}
 
 		fea_push_back(knot, knots);
 	}
 
+
 	// Gradient 1
 	{
 		fea_gradient_info gradient;
 
-		gradient.mode = in_g1_interp_mode;
+		gradient.interp_mode = in_g1_interp_mode;
 		gradient.steps = in_g1_staircase_steps;
-		gradient.mix_mode = in_g1_mix_mode;
-		gradient.offset = vector(
+		gradient.cl_boost = color(
 			0,
 			in_g1_chroma_boost,
 			in_g1_lightness_boost
@@ -394,60 +537,44 @@ shader ColorLab
 	// Knot 4
 	{
 		fea_knot_info knot;
+		// TODO : expose knot position
 		knot.position = 1.0;
 
 		if (in_k4_mode == 0) {
-			color col = fea_transformc("okhcl", in_k4_color);
-			knot.hcl = col;
+			// color test = transformc("rgb", in_k4_color);
+			knot.lab = fea_transformc("oklab", in_k4_color);
 		} else {
 			// relative, make absolute to previous knot
 			fea_knot_info prev_knot = fea_back(knots);
-			color col = prev_knot.hcl;
 
-			knot.hcl = color(
+			color col = fea_transformc("oklab", "okhcl", prev_knot.lab);
+			col = color(
 				fea_deg_to_per(in_k4_hcl_offset[0]) + col[0],
 				in_k4_hcl_offset[1] + col[1],
 				in_k4_hcl_offset[2] + col[2]
 			);
+			knot.lab = fea_transformc("okhcl", "oklab", col);
 		}
 
 		fea_push_back(knot, knots);
 	}
 
-	color result = fea_hcl_interpolate(val, knots.data, knots.size, gradients.data);
+	color result = fea_lab_interpolate(val, knots.data, knots.size, gradients.data);
 
-	Out = fea_transformc("okhcl", "rgb", result);
-	// return;
+	Out = fea_transformc("oklab", "rgb", result);
+	// Out = clamp(Out, color(0), color(1));
 
-
-	// // The user input color, in hsv space.
-	// color base_color;
-	// color high_color;
-	// if (in_g1_mix_mode == 0) {
-	// 	// oklab
-	// 	base_color = fea_transformc("oklab", in_k1_color);
-	// 	high_color = fea_transformc("oklab", in_k4_color);
-	// } else {
-	// 	// okhcl
-	// 	base_color = fea_transformc("okhcl", in_k1_color);
-	// 	high_color = fea_transformc("okhcl", in_k4_color);
-	// }
-
-	// color out_color = 0;
-	// {
-	// 	color mixed = mix(base_color, high_color, val);
-	// 	if (in_g1_mix_mode == 0) {
-	// 		// oklab
-	// 		mixed = fea_transformc("oklab", "okhcl", mixed);
-	// 	}
-
-	// 	float midpoint_weight = 1.0 - abs((val * 2.0) - 1.0);
-	// 	mixed[1] += in_g1_chroma_boost * midpoint_weight;// * midpoint_weight;
-	// 	mixed[2] += in_g1_lightness_boost * midpoint_weight;// * midpoint_weight;
-
-	// 	// regardless, output oklab
-	// 	out_color = fea_transformc("okhcl", "oklab", mixed);
-	// }
-
-	// Out = fea_transformc("oklab", "rgb", out_color);
+	// Debug out-of-range.
+#if 1
+	if (in_debug_out_of_range) {
+	for (int i = 0; i < 3; ++i) {
+		if (Out[i] > 1.0) {
+			Out = color(1,0,1);
+		}
+		if (Out[i] < 0.0) {
+			Out = color(0,1,0);
+		}
+	}
+	}
+#endif
 }
