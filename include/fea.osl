@@ -191,6 +191,71 @@ float fea_interp(float k, float percent) {
 	return ret;
 }
 
+// Given x, an alpha constant (0.5 == centripetal), and 4 points.
+// Computes the catmull-rom interpolation of the point at x.
+//
+// https://en.wikipedia.org/wiki/Centripetal_Catmull%E2%80%93Rom_spline
+point fea_catmull_rom(float x, float alpha,
+		point p0, point p1, point p2, point p3) {
+
+	float get_t(float y, float alpha, point p0, point p1) {
+		vector dir = p1 - p0;
+		float a = dot(dir, dir); // sqr mag
+		float b = pow(a, alpha * 0.5);
+		return b + y;
+	}
+
+	// Get the tees.
+	// This effectively remaps (or transforms) the knot positions
+	// into a not-necessarily-uniform space.
+	// Which gives more or less importance to the curves before
+	// and after our desired segment.
+	float t0 = 0.0;
+	float t1 = get_t(t0, alpha, p0, p1);
+	float t2 = get_t(t1, alpha, p1, p2);
+	float t3 = get_t(t2, alpha, p2, p3);
+	float t = fea_lerp(x, t1, t2);
+
+	// Weigh the points given t's percentage (or inverse percentage)
+	// along the ranges.
+	point a1 = fea_per_inv(t, t0, t1) * p0 + fea_per(t, t0, t1) * p1;
+	point a2 = fea_per_inv(t, t1, t2) * p1 + fea_per(t, t1, t2) * p2;
+	point a3 = fea_per_inv(t, t2, t3) * p2 + fea_per(t, t2, t3) * p3;
+	point b1 = fea_per_inv(t, t0, t2) * a1 + fea_per(t, t0, t2) * a2;
+	point b2 = fea_per_inv(t, t1, t3) * a2 + fea_per(t, t1, t3) * a3;
+	point c  = fea_per_inv(t, t1, t2) * b1 + fea_per(t, t1, t2) * b2;
+	return c;
+}
+
+// Same as other catmull rom interpolation, but for floats.
+float fea_catmull_rom(float x, float alpha,
+		float p0, float p1, float p2, float p3) {
+
+	float get_t(float y, float alpha, float p0, float p1) {
+		float dir = p1 - p0;
+		float a = dir * dir; // sqr mag
+		float b = pow(a, alpha * 0.5);
+		return b + y;
+	}
+
+	// Get the tees.
+	float t0 = 0.0;
+	float t1 = get_t(t0, alpha, p0, p1);
+	float t2 = get_t(t1, alpha, p1, p2);
+	float t3 = get_t(t2, alpha, p2, p3);
+	float t = fea_lerp(x, t1, t2);
+
+	// Weigh the points given t's percentage (or inverse percentage)
+	// along the ranges.
+	float a1 = fea_per_inv(t, t0, t1) * p0 + fea_per(t, t0, t1) * p1;
+	float a2 = fea_per_inv(t, t1, t2) * p1 + fea_per(t, t1, t2) * p2;
+	float a3 = fea_per_inv(t, t2, t3) * p2 + fea_per(t, t2, t3) * p3;
+	float b1 = fea_per_inv(t, t0, t2) * a1 + fea_per(t, t0, t2) * a2;
+	float b2 = fea_per_inv(t, t1, t3) * a2 + fea_per(t, t1, t3) * a3;
+	float c  = fea_per_inv(t, t1, t2) * b1 + fea_per(t, t1, t2) * b2;
+	return c;
+}
+
 float fea_average(vector in) {
 	return (in[0] + in[1] + in[2]) / 3.0;
 }

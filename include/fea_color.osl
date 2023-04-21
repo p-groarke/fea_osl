@@ -167,67 +167,42 @@ float fea_cbrt(float x) {
 	return pow(abs(x), 0.33333333333333333);
 }
 
+color fea_oklab_to_okhcl(color lab) {
+	float l = lab[0];
+	float a = lab[1];
+	float b = lab[2];
 
-// Transforms a color from_space to_space.
-// Supports extra color spaces : "oklab", "okhcl" (oklab polar form)
-color fea_transformc(string from_space, string to_space, color in_col) {
-	if (from_space == to_space) {
-		return in_col;
+	// Note : atan2(0/0) differs in viewport from render, fix it.
+	float h = 0.0;
+	if (a != 0.0 && b != 0.0) {
+		h = fea_rad_to_per(atan2(b, a));
 	}
 
-	// Returned color.
-	color ret = 0;
+	float ab2 = a * a + b * b;
+	float c = sqrt(ab2);
+	// if (ab2 > 0.0) {
+	// 	c = sqrt(ab2);
+	// }
+	return color(h, c, l);
+}
 
-	color oklab_to_okhcl(color lab) {
-		color ret;
-		ret[0] = fea_rad_to_per(atan2(lab[2], lab[1]));
-		ret[1] = sqrt(lab[1] * lab[1] + lab[2] * lab[2]);
-		ret[2] = lab[0];
-		return ret;
-	}
 
-	color okhcl_to_oklab(color hcl) {
-		color safe = color(
-			hcl[0],
-			clamp(hcl[1], 0.0, 1.0),
-			clamp(hcl[2], 0.0, 1.0)
-			// hcl[1],
-			// hcl[2]
-		);
-		float a = safe[1] * cos(fea_per_to_rad(safe[0]));
-		float b = safe[1] * sin(fea_per_to_rad(safe[0]));
-		return color(safe[2], a, b);
-	}
+color fea_okhcl_to_oklab(color hcl) {
+	float h = fea_per_to_rad(hcl[0]);
+	float c = clamp(hcl[1], 0.0000001, 1.0);
+	float l = clamp(hcl[2], 0.0, 1.0);
 
-	// Perf shortcuts.
-	if (from_space == "oklab" && to_space == "okhcl") {
-		ret = oklab_to_okhcl(in_col);
-		return ret;
-	}
+	float a = c * cos(h);
+	float b = c * sin(h);
+	return color(l, a, b);
+}
 
-	if (from_space == "okhcl" && to_space == "oklab") {
-		ret = okhcl_to_oklab(in_col);
-		return ret;
-	}
-
+color fea_oklab_to_xyz(point lab) {
 	// oklab transforms.
-	matrix m1 = matrix(
-		0.8189330101, 0.0329845436, 0.0482003018, 0.0,
-		0.3618667424, 0.9293118715, 0.2643662691, 0.0,
-		-0.1288597137, 0.0361456387, 0.6338517070, 0.0,
-		0.0, 0.0, 0.0, 1.0
-	);
 	matrix m1_inv = matrix(
 		1.22701383, -0.0405801795, -0.0763812810, 0.0,
 		-0.557799995, 1.11225688, -0.421481967, 0.0,
 		0.281256139, -0.0716766790, 1.58616316, 0.0,
-		0.0, 0.0, 0.0, 1.0
-	);
-
-	matrix m2 = matrix(
-		0.2104542553, 1.9779984951, 0.0259040371, 0.0,
-		0.7936177850, -2.4285922050, 0.7827717662, 0.0,
-		-0.0040720468, 0.4505937099, -0.8086757660, 0.0,
 		0.0, 0.0, 0.0, 1.0
 	);
 	matrix m2_inv = matrix(
@@ -236,30 +211,59 @@ color fea_transformc(string from_space, string to_space, color in_col) {
 		0.215803757, -0.0638541728, -1.29148555, 0.0,
 		0.0, 0.0, 0.0, 1.0
 	);
+	point lms = transform(m2_inv, lab);
+	lms[0] = lms[0] * lms[0] * lms[0];
+	lms[1] = lms[1] * lms[1] * lms[1];
+	lms[2] = lms[2] * lms[2] * lms[2];
+	return transform(m1_inv, lms); // xyz
+}
 
-	color oklab_to_xyz(point lab) {
-		point lms = transform(m2_inv, lab);
-		lms[0] = lms[0] * lms[0] * lms[0];
-		lms[1] = lms[1] * lms[1] * lms[1];
-		lms[2] = lms[2] * lms[2] * lms[2];
-		return transform(m1_inv, lms); // xyz
+color fea_xyz_to_oklab(point xyz) {
+	// oklab transforms.
+	matrix m1 = matrix(
+		0.8189330101, 0.0329845436, 0.0482003018, 0.0,
+		0.3618667424, 0.9293118715, 0.2643662691, 0.0,
+		-0.1288597137, 0.0361456387, 0.6338517070, 0.0,
+		0.0, 0.0, 0.0, 1.0
+	);
+	matrix m2 = matrix(
+		0.2104542553, 1.9779984951, 0.0259040371, 0.0,
+		0.7936177850, -2.4285922050, 0.7827717662, 0.0,
+		-0.0040720468, 0.4505937099, -0.8086757660, 0.0,
+		0.0, 0.0, 0.0, 1.0
+	);
+
+	point lms = transform(m1, xyz);
+	lms[0] = fea_cbrt(lms[0]);
+	lms[1] = fea_cbrt(lms[1]);
+	lms[2] = fea_cbrt(lms[2]);
+	return transform(m2, lms); // oklab
+}
+
+// Transforms a color from_space to_space.
+// Supports extra color spaces : "oklab", "okhcl" (oklab polar form)
+color fea_transformc(string from_space, string to_space, color in_col) {
+	if (from_space == to_space) {
+		return in_col;
 	}
 
-	color xyz_to_oklab(point xyz) {
-		point lms = transform(m1, xyz);
-		lms[0] = fea_cbrt(lms[0]);
-		lms[1] = fea_cbrt(lms[1]);
-		lms[2] = fea_cbrt(lms[2]);
-		return transform(m2, lms); // oklab
+	// Perf shortcuts.
+	if (from_space == "oklab" && to_space == "okhcl") {
+		return fea_oklab_to_okhcl(in_col);
 	}
 
+	if (from_space == "okhcl" && to_space == "oklab") {
+		return fea_okhcl_to_oklab(in_col);
+	}
+
+	color ret = 0;
 
 	// First, convert anything to xyz.
 	if (from_space == "oklab") {
-		ret = oklab_to_xyz(in_col);
+		ret = fea_oklab_to_xyz(in_col);
 	} else if (from_space == "okhcl") {
-		color lab = okhcl_to_oklab(in_col);
-		ret = oklab_to_xyz(lab);
+		color lab = fea_okhcl_to_oklab(in_col);
+		ret = fea_oklab_to_xyz(lab);
 	} else {
 		ret = transformc(from_space, "XYZ", in_col);
 	}
@@ -267,10 +271,10 @@ color fea_transformc(string from_space, string to_space, color in_col) {
 	// At this point, we have an xyz color in ret.
 	// Do our custom conversion, fallback on OSL.
 	if (to_space == "oklab") {
-		ret = xyz_to_oklab(ret);
+		ret = fea_xyz_to_oklab(ret);
 	} else if (to_space == "okhcl") {
-		color lab = xyz_to_oklab(ret);
-		ret = oklab_to_okhcl(lab);
+		color lab = fea_xyz_to_oklab(ret);
+		ret = fea_oklab_to_okhcl(lab);
 	} else {
 		ret = transformc("XYZ", to_space, ret);
 	}
