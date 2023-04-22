@@ -7,6 +7,99 @@
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_color.osl"
 
+// UI Macros
+#define FEA_KNOT_WIDGET(n) \
+int in_k##n##_mode = 1 \
+[[ \
+	string widget = "mapper", \
+	string label = "K"#n" - Mode", \
+	string options = \
+		"Absolute (Knot Color):0" \
+		"|Relative (Previous Color + HCL Offset):1" \
+		, \
+	string help = \
+		"Absolute Mode : The knot uses a specific color.<br>" \
+		"Relative Mode : Unlike other knots, when the base knot " \
+			"is in relative mode, it uses the Base Color map input as a " \
+			"source.<br>", \
+	int connectable = 0, \
+]], \
+color in_k##n##_color = color(1, 0, 0) \
+[[ \
+	string label = "K"#n" - Color", \
+	string help = "The absolute color value used in absolute mode.", \
+]], \
+vector in_k##n##_hcl_offset = 0 \
+[[ \
+	string label = "K"#n" - HCL Offset", \
+	string help = "The offset values added to the Previous Color map " \
+			"(or Base Color map if Knot 1).<br>" \
+			"Hue (degrees) : [0, 360]<br>" \
+			"Chroma (percentage) : [0, 1]<br>" \
+			"Lightness (percentage) : [0, 1]", \
+]]
+
+#define FEA_MIDDLE_KNOT_WIDGET(n, default_pos) \
+int in_k##n##_enabled = 0 \
+[[ \
+	string widget = "checkbox", \
+	string label = "K"#n" - Enabled", \
+	string help = "Enable this knot and its gradient.", \
+	int connectable = 0, \
+]], \
+float in_k##n##_position = default_pos \
+[[ \
+	string label = "K"#n" - Position", \
+	string help = "The 'x' position of this knot on the gradient.<br>" \
+		"Note : The gradients always refer to their surrounding knots, " \
+		"which may lead to inconsistent UI if knot order isn't respected.", \
+	float min = 0.0, \
+	float max = 1.0, \
+]], \
+FEA_KNOT_WIDGET(n)
+
+
+#define FEA_GRADIENT_WIDGET(n) \
+int in_g##n##_interp_mode = 0 \
+[[ \
+	string widget = "mapper", \
+	string label = "G"#n" - Interpolation", \
+	string options = \
+		fea_gradient_interpolation_opts, \
+	string help = "The gradient interpolation mode.", \
+	int connectable = 0, \
+]], \
+int in_g##n##_staircase_steps = 1 \
+[[ \
+	string label = "G"#n" - Staircase Steps", \
+	string help = "Amount of steps when using staircase interpolation. " \
+		"1 step is equivalent to 'Constant' interpolation.", \
+	int min = 1, \
+	int connectable = 0, \
+]], \
+float in_g##n##_chroma_boost = 0.0 \
+[[ \
+	string label = "G"#n" - Chroma Boost", \
+	string help = "Adds (or substracts) from chroma during interpolation.", \
+	float min = -2.0, \
+	float max = 2.0, \
+]], \
+float in_g##n##_lightness_boost = 0.0 \
+[[ \
+	string label = "G"#n" - Lightness Boost", \
+	string help = "Adds (or substracts) from lightness during interpolation.", \
+	float min = -2.0, \
+	float max = 2.0, \
+]]
+
+// maybe?
+// float in_g1_staircase_border_width = 0.1
+// [[
+// 	string label = "G1 - Staircase Border Width",
+// 	string help = "The width of the border used to apply Chroma and Lightness boost.",
+// 	int connectable = 0,
+// ]],
+
 
 // Represents an absolute value knot in a gradient.
 struct fea_knot_info {
@@ -81,7 +174,7 @@ color fea_catmull_gradient(float x, fea_knot_info k0, fea_gradient_info g0,
 	color c2 = k2.lab;
 	color c3 = k3.lab;
 
-	color ret = 0;
+	color lab_ret = 0;
 	for (int i = 0; i < 3; ++i) {
 		// Run the interpolation in 2d, with position interpreted as x.
 		point interp = fea_catmull_rom(x, 0.5,
@@ -91,37 +184,24 @@ color fea_catmull_gradient(float x, fea_knot_info k0, fea_gradient_info g0,
 			point(k3.position, c3[i], 0)
 		);
 
-		ret[i] = interp[1];
+		lab_ret[i] = interp[1];
 	}
 
 	// Also blend gradient boost with catmull-rom interpolation.
 	{
-		float mid_point = (k2.position - k1.position) * 0.5;
-		float new_x;
-		if (x < 0.5) {
-			// drop k3
-			new_x = fea_catmull_rom(x, 0.5,
-				k0.position,
-				k1.position,
-				mid_point,
-				k2.position
-			);
-		} else {
-			// drop k0
-			new_x = fea_catmull_rom(x, 0.5,
-				k1.position,
-				mid_point,
-				k2.position,
-				k3.position
-			);
-		}
+		point interp = fea_catmull_rom(x, 0.5,
+			point(k0.position, 0.0, 0),
+			point(k1.position, 1.0, 0),
+			point(k2.position, 2.0, 0),
+			point(k3.position, 3.0, 0)
+		);
 
-		// We have the correct x, remap that to percentage.
-		float p = fea_per(new_x, k1.position, k2.position);
-		ret = fea_gradient_boost(p, g1, ret);
+		float grad_pos = interp[1];
+		float grad_per = grad_pos - floor(grad_pos);
+		lab_ret = fea_gradient_boost(grad_per, g1, lab_ret);
 	}
 
-	return ret;
+	return lab_ret;
 }
 
 // Given the provided knots and gradients, returns the interpolated value
@@ -218,6 +298,41 @@ color fea_lab_interpolate(float in_coord,
 	return 0;
 }
 
+void fea_push_back_knot(int interp_mode, float x_pos, color rgb_knot_col,
+		color lab_prev_col, vector hcl_offset,
+		output fea_knot_info out_knot_arr[], output int out_arr_size) {
+
+	fea_knot_info knot;
+	knot.position = x_pos;
+
+	if (interp_mode == 0) {
+		// absolute
+		knot.lab = fea_transformc("oklab", rgb_knot_col);
+	} else {
+		// relative, make absolute using base color map.
+		color hcl = fea_transformc("oklab", "okhcl", lab_prev_col);
+		hcl[0] += fea_deg_to_per(hcl_offset[0]);
+		hcl[1] += hcl_offset[1];
+		hcl[2] += hcl_offset[2];
+		knot.lab = fea_transformc("okhcl", "oklab", hcl);
+	}
+	out_knot_arr[out_arr_size++] = knot;
+}
+
+void fea_push_back_gradient(int interp_mode, int staircase_steps,
+		float chroma_boost, float lightness_boost,
+		output fea_gradient_info out_grad_arr[], output int out_arr_size) {
+	fea_gradient_info grad;
+	grad.interp_mode = interp_mode;
+	grad.steps = staircase_steps;
+	grad.cl_boost = color(
+		0,
+		chroma_boost,
+		lightness_boost
+	);
+	out_grad_arr[out_arr_size++] = grad;
+}
+
 // TODO
 // 		"Simple Hue:0"
 // 		"|Heat Map:1"
@@ -277,113 +392,31 @@ shader ColorLab
 
 	FEA_SPACER(0),
 	FEA_TITLE(0, "Knot 1 (Base Knot)"),
-
-	int in_k1_mode = 1
-	[[
-		string widget = "mapper",
-		string label = "K1 - Mode",
-		string options =
-			"Absolute (Color):0"
-			"|Relative (Base Color Map + HCL Offset):1"
-			,
-		string help = "Relative Mode : Unlike other knots, when the base knot is in relative mode, it uses the Base Color map input as a source.<br>"
-				"Absolute Mode : The knot use a specific color.",
-		int connectable = 0,
-	]],
-
-	color in_k1_color = color(1, 0, 0)
-	[[
-		string label = "K1 - Color",
-		string help = "The absolute color value used in absolute mode.",
-	]],
-
-	vector in_k1_hcl_offset = 0
-	[[
-		string label = "K1 - HCL Offset",
-		string help = "The offset values added to the 'Base Color' map.<br>"
-				"Hue (degrees) : [0, 360]<br>"
-				"Chroma (percentage) : [0, 1]<br>"
-				"Lightness (percentage) : [0, 1]",
-	]],
+	FEA_KNOT_WIDGET(1),
 
 	FEA_SPACER(1),
-
 	FEA_TITLE(1, "Gradient 1"),
+	FEA_GRADIENT_WIDGET(1),
 
-	int in_g1_interp_mode = 0
-	[[
-		string widget = "mapper",
-		string label = "G1 - Interpolation",
-		string options =
-			fea_gradient_interpolation_opts,
-		string help = "The gradient interpolation mode.",
-		int connectable = 0,
-	]],
+	FEA_SPACER(2),
+	FEA_TITLE(2, "Knot 2"),
+	FEA_MIDDLE_KNOT_WIDGET(2, 0.33),
 
-	int in_g1_staircase_steps = 1
-	[[
-		string label = "G1 - Staircase Steps",
-		string help = "Amount of steps when using staircase interpolation. 1 step is equivalent to 'Constant' interpolation.",
-		int min = 1,
-		int connectable = 0,
-	]],
+	FEA_SPACER(3),
+	FEA_TITLE(3, "Gradient 2"),
+	FEA_GRADIENT_WIDGET(2),
 
-	// float in_g1_staircase_border_width = 0.1
-	// [[
-	// 	string label = "G1 - Staircase Border Width",
-	// 	string help = "The width of the border used to apply Chroma and Lightness boost.",
-	// 	int connectable = 0,
-	// ]],
+	FEA_SPACER(4),
+	FEA_TITLE(4, "Knot 3"),
+	FEA_MIDDLE_KNOT_WIDGET(3, 0.66),
 
-	float in_g1_chroma_boost = 0.0
-	[[
-		string label = "G1 - Chroma Boost",
-		string help = "Adds (or substracts) from chroma during interpolation.",
-		float min = -2.0,
-		float max = 2.0,
-	]],
-
-	float in_g1_lightness_boost = 0.0
-	[[
-		string label = "G1 - Lightness Boost",
-		string help = "Adds (or substracts) from lightness during interpolation.",
-		float min = -2.0,
-		float max = 2.0,
-	]],
-
+	FEA_SPACER(5),
+	FEA_TITLE(5, "Gradient 3"),
+	FEA_GRADIENT_WIDGET(3),
 
 	FEA_SPACER(42),
 	FEA_TITLE(42, "Knot 4 (Last Knot)"),
-
-	int in_k4_mode = 0
-	[[
-		string widget = "mapper",
-		string label = "K4 - Mode",
-		string options =
-			"Absolute (Color):0"
-			"|Relative (HCL Offset):1"
-			,
-		int connectable = 0,
-	]],
-
-	color in_k4_color = 1
-	[[
-		string label = "K4 - Color",
-	]],
-
-	vector in_k4_hcl_offset = 0
-	[[
-		string label = "K4 - HCL Offset",
-	]],
-
-	// float in_k4_position = 1.0
-	// [[
-	// 	string label = "K4 - Position",
-	// 	string help = "The 'x' position of this knot on the gradient.<br>"
-	// 			"Note : The gradients always refer to their surrounding knots, which may lead to inconsistent UI if knot order isn't respected.",
-	// 	float min = 0.0,
-	// 	float max = 1.0,
-	// ]],
+	FEA_KNOT_WIDGET(4),
 
 	output color out_color = 0
 	[[
@@ -408,73 +441,46 @@ shader ColorLab
 	int gradients_size = 0;
 
 	// Knot 1 is special snowflake.
-	{
-		// fea_knot_info knot;
-		knots[0].position = 0;
-
-		if (in_k1_mode == 0) {
-			// absolute
-			knots[0].lab = fea_transformc("oklab", in_k1_color);
-		} else {
-			// relative, make absolute using base color map.
-			vector offset = in_k1_hcl_offset;
-			color hcl = fea_transformc("okhcl", in_base_color);
-			hcl[0] += fea_deg_to_per(offset[0]);
-			hcl[1] += offset[1];
-			hcl[2] += offset[2];
-			knots[0].lab = fea_transformc("okhcl", "oklab", hcl);
-		}
-		++knots_size;
-	}
+	fea_push_back_knot(in_k1_mode, 0.0, in_k1_color,
+			fea_transformc("rgb", "oklab", in_base_color),
+			in_k1_hcl_offset, knots, knots_size);
 
 	// Gradient 1
-	{
-		gradients[0].interp_mode = in_g1_interp_mode;
-		gradients[0].steps = in_g1_staircase_steps;
-		gradients[0].cl_boost = color(
-			0,
-			in_g1_chroma_boost,
-			in_g1_lightness_boost
-		);
-		++gradients_size;
+	fea_push_back_gradient(in_g1_interp_mode, in_g1_staircase_steps,
+			in_g1_chroma_boost, in_g1_lightness_boost,
+			gradients, gradients_size);
+
+	// Knot 2
+	if (in_k2_enabled && !in_k3_enabled) {
+		fea_push_back_knot(in_k2_mode, in_k2_position, in_k2_color,
+				knots[knots_size - 1].lab,
+				in_k2_hcl_offset, knots, knots_size);
+		fea_push_back_gradient(in_g2_interp_mode, in_g2_staircase_steps,
+				in_g2_chroma_boost, in_g2_lightness_boost,
+				gradients, gradients_size);
 	}
 
-	// // Knot 2
-	// if (in_k2_enabled) {
+	// Knot 3
+	if (in_k3_enabled && !in_k2_enabled) {
+		fea_push_back_knot(in_k3_mode, in_k3_position, in_k3_color,
+				knots[knots_size - 1].lab,
+				in_k3_hcl_offset, knots, knots_size);
+		fea_push_back_gradient(in_g3_interp_mode, in_g3_staircase_steps,
+				in_g3_chroma_boost, in_g3_lightness_boost,
+				gradients, gradients_size);
+	}
 
-	// }
+	// If both knot 2 and 3 are enabled, sort them by interpolation position.
+	if (in_k2_enabled && in_k3_enabled) {
 
-	// // Knot 3
-	// if (in_k3_enabled) {
-
-	// }
+	}
 
 	// Knot 4
-	{
-		// TODO : expose knot position
-		knots[1].position = 1.0;
+	fea_push_back_knot(in_k4_mode, 1.0, in_k4_color, knots[knots_size - 1].lab,
+			in_k4_hcl_offset, knots, knots_size);
 
-		if (in_k4_mode == 0) {
-			// absolute
-			knots[1].lab = fea_transformc("oklab", in_k4_color);
-		} else {
-			// relative, make absolute to previous knot
-			color prev_lab = knots[knots_size - 1].lab;
-			vector offset = in_k4_hcl_offset;
-			color hcl = fea_transformc("oklab", "okhcl", prev_lab);
-			hcl[0] += fea_deg_to_per(offset[0]);
-			hcl[1] += offset[1];
-			hcl[2] += offset[2];
-			knots[1].lab = fea_transformc("okhcl", "oklab", hcl);
-		}
-		++knots_size;
-	}
-
-	color result = fea_lab_interpolate(val, knots, knots_size, gradients);
-	out_color = fea_transformc("oklab", "rgb", result);
-
-
-
+	color lab_result = fea_lab_interpolate(val, knots, knots_size, gradients);
+	out_color = fea_transformc("oklab", "rgb", lab_result);
 
 	// Debug out-of-range.
 #if 1
@@ -500,6 +506,14 @@ shader ColorLab
 	// 	string help = "Enable this knot and its gradient.",
 	// 	int connectable = 0,
 	// ]],
+	// float in_k2_position = 0.33
+	// [[
+	// 	string label = "K2 - Position",
+	// 	string help = "The 'x' position of this knot on the gradient.<br>"
+	// 			"Note : The gradients always refer to their surrounding knots, which may lead to inconsistent UI if knot order isn't respected.",
+	// 	float min = 0.0,
+	// 	float max = 1.0,
+	// ]],
 	// int in_k2_mode = 0
 	// [[
 	// 	string widget = "mapper",
@@ -517,14 +531,6 @@ shader ColorLab
 	// vector in_k2_hcl_offset = 0
 	// [[
 	// 	string label = "K2 - HCL Offset",
-	// ]],
-	// float in_k2_position = 0.33
-	// [[
-	// 	string label = "K2 - Position",
-	// 	string help = "The 'x' position of this knot on the gradient.<br>"
-	// 			"Note : The gradients always refer to their surrounding knots, which may lead to inconsistent UI if knot order isn't respected.",
-	// 	float min = 0.0,
-	// 	float max = 1.0,
 	// ]],
 
 

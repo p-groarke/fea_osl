@@ -65,7 +65,8 @@
 		int connectable = 0, \
 	]]
 
-point fea_wgt_compute_uvw(int mode, int map_channel, point uvw_input, float scale, vector axis_scale, point offset, int wrap) {
+point fea_wgt_compute_uvw(int mode, int map_channel, point uvw_input,
+		float scale, vector axis_scale, point offset, int wrap) {
 	point ret = 0;
 
 	if (mode == 0) {
