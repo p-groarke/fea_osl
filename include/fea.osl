@@ -299,4 +299,8 @@ vector fea_ucos(vector x) {
 	return (cos(x) + 1.0) * 0.5;
 }
 
+int fea_near(float x, float target, float eps) {
+	return abs(target - x) < eps;
+}
+
 #endif // fea_osl

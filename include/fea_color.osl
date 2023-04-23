@@ -175,25 +175,23 @@ color fea_oklab_to_okhcl(color lab) {
 	// Note : atan2(0/0) differs in viewport from render, fix it.
 	float h = 0.0;
 	if (a != 0.0 && b != 0.0) {
-		h = fea_rad_to_per(atan2(b, a));
+		h = fea_rad_to_deg(atan2(b, a));
 	}
 
-	float ab2 = a * a + b * b;
-	float c = sqrt(ab2);
-	// if (ab2 > 0.0) {
-	// 	c = sqrt(ab2);
-	// }
+	float c = sqrt(a * a + b * b);
 	return color(h, c, l);
 }
 
-
 color fea_okhcl_to_oklab(color hcl) {
-	float h = fea_per_to_rad(hcl[0]);
+	float h = fea_deg_to_rad(hcl[0]);
 	float c = clamp(hcl[1], 0.0000001, 1.0);
 	float l = clamp(hcl[2], 0.0, 1.0);
 
-	float a = c * cos(h);
-	float b = c * sin(h);
+	float msin = 0.0;
+	float mcos = 0.0;
+	sincos(h, msin, mcos);
+	float a = c * mcos;
+	float b = c * msin;
 	return color(l, a, b);
 }
 
