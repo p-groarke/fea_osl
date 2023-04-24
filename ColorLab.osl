@@ -7,7 +7,6 @@
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_color.osl"
 
-
 // UI Macros
 #define FEA_KNOT_WIDGET(n) \
 int in_k##n##_mode = 1 \
@@ -131,8 +130,8 @@ void fea_init(output fea_knot_info out) {
 #define fea_gradient_interpolation_opts \
 		"Linear:0" \
 		"|Staircase:1" \
-		"|Catmull-Rom:2" \
-		"|Monotone Cubic:3"
+		"|Catmull-Rom:2"
+		// "|Monotone Cubic:3" // todo?
 
 // Represents the "in-between" gradient of 2 knots.
 struct fea_gradient_info {
@@ -164,25 +163,35 @@ color fea_gradient_boost(float x, fea_gradient_info g, color hcl) {
 // Linear gradient for provided knots and gradient.
 // Expects x from [0, 1].
 // Returns an hcl value.
-color fea_linear_gradient(float x, fea_knot_info k1, fea_gradient_info g,
+color fea_linear_gradient(float x, int mix_mode, fea_knot_info k1, fea_gradient_info g,
 		fea_knot_info k2) {
-	color hcl_ret = mix(k1.hcl, k2.hcl, x);
+	color hcl_ret;
+	if (mix_mode == 0) {
+		// oklab
+		color l1 = fea_transformc("okhcl", "oklab", k1.hcl);
+		color l2 = fea_transformc("okhcl", "oklab", k2.hcl);
+		hcl_ret = mix(l1, l2, x);
+		hcl_ret = fea_transformc("oklab", "okhcl", hcl_ret);
+	} else {
+		// okhcl
+		hcl_ret = mix(k1.hcl, k2.hcl, x);
+	}
 	return fea_gradient_boost(x, g, hcl_ret);
 }
 
 // Staircase gradient for provided knots and gradient.
 // Expects x from [0, 1].
 // Returns an hcl value.
-color fea_staircase_gradient(float x, fea_knot_info k1, fea_gradient_info g,
+color fea_staircase_gradient(float x, int mix_mode, fea_knot_info k1, fea_gradient_info g,
 		fea_knot_info k2) {
 	float p = fea_staircase_interp(x, g.steps, 0.0, 1.0);
-	return fea_linear_gradient(p, k1, g, k2);
+	return fea_linear_gradient(p, mix_mode, k1, g, k2);
 }
 
 // Catmull-rom spline gradient for provided knots and gradient.
 // Expects x from [0, 1].
 // Returns an hcl value.
-color fea_catmull_gradient(float x, fea_knot_info k0, fea_gradient_info g0,
+color fea_catmull_gradient(float x, int mix_mode, fea_knot_info k0, fea_gradient_info g0,
 		fea_knot_info k1, fea_gradient_info g1,
 		fea_knot_info k2, fea_gradient_info g2,
 		fea_knot_info k3) {
@@ -191,6 +200,14 @@ color fea_catmull_gradient(float x, fea_knot_info k0, fea_gradient_info g0,
 	color c1 = k1.hcl;
 	color c2 = k2.hcl;
 	color c3 = k3.hcl;
+
+	if (mix_mode == 0) {
+		// oklab
+		c0 = fea_transformc("okhcl", "oklab", c0);
+		c1 = fea_transformc("okhcl", "oklab", c1);
+		c2 = fea_transformc("okhcl", "oklab", c2);
+		c3 = fea_transformc("okhcl", "oklab", c3);
+	}
 
 	color hcl_ret = 0;
 	for (int i = 0; i < 3; ++i) {
@@ -203,6 +220,11 @@ color fea_catmull_gradient(float x, fea_knot_info k0, fea_gradient_info g0,
 		);
 
 		hcl_ret[i] = interp[1];
+	}
+
+	if (mix_mode == 0) {
+		// oklab
+		hcl_ret = fea_transformc("oklab", "okhcl", hcl_ret);
 	}
 
 	// Also blend gradient boost with catmull-rom interpolation.
@@ -231,7 +253,7 @@ color fea_catmull_gradient(float x, fea_knot_info k0, fea_gradient_info g0,
 // Expects the gradients' array size to be knot_size - 1.
 //
 // Return an hcl color.
-color fea_lab_interpolate(float in_coord,
+color fea_lab_interpolate(float in_coord, int mix_mode,
 		fea_knot_info knots[], int in_knot_size,
 		fea_gradient_info gradients[]) {
 	int knot_size = min(arraylength(knots), in_knot_size);
@@ -300,17 +322,17 @@ color fea_lab_interpolate(float in_coord,
 
 	if (gradient1.interp_mode == 0) {
 		// linear
-		return fea_linear_gradient(local_coord, knot1, gradient1, knot2);
+		return fea_linear_gradient(local_coord, mix_mode, knot1, gradient1, knot2);
 	}
 
 	if (gradient1.interp_mode == 1) {
 		// staircase
-		return fea_staircase_gradient(local_coord, knot1, gradient1, knot2);
+		return fea_staircase_gradient(local_coord, mix_mode, knot1, gradient1, knot2);
 	}
 
 	if (gradient1.interp_mode == 2) {
 		// catmull-rom
-		return fea_catmull_gradient(local_coord, knot0, gradient0, knot1, gradient1, knot2, gradient2, knot3);
+		return fea_catmull_gradient(local_coord, mix_mode, knot0, gradient0, knot1, gradient1, knot2, gradient2, knot3);
 	}
 
 	return 0;
@@ -347,15 +369,10 @@ void fea_push_back_gradient(int interp_mode, int staircase_steps,
 
 // TODO
 // 		"Simple Hue:0"
-// 		"|Heat Map:1"
-// 		"|Bright Burn:2"
-// 		"|Dark Burn:9"
-// 		"|Complements:3"
-// 		"|Analogous:4"
-// 		"|Split-Complementary:5"
-// 		"|Triad:6"
-// 		"|Tetradic:7"
-// 		"|Square:8"
+
+#define fea_mixmode_opts \
+		"Oklab:0" \
+		"|Okhcl:1"
 
 shader ColorLab
 [[
@@ -378,6 +395,18 @@ shader ColorLab
 		string help = "When using Knot 1 in relative mode, this input map is used as the relative-to color.",
 	]],
 
+	int in_mix_mode = 0
+	[[
+		string widget = "mapper",
+		string label = "Mix Mode",
+		string options =
+			fea_mixmode_opts,
+		string help = "The blending mode.<br>"
+			"Oklab : Blends directly to target color (more traditional).<br>"
+			"Okhcl : Travels color circle to destination color.",
+		int connectable = 0,
+	]],
+
 	int in_clamp = 0
 	[[
 		string label = "Clamp Input",
@@ -394,7 +423,7 @@ shader ColorLab
 		string widget = "checkBox",
 	]],
 
-	int in_debug_out_of_range = 0
+	int in_debug  = 0
 	[[
 		string label = "Debug Out-of-range Colors",
 		string help = "Outputs magenta if output color components are above 1.0.<br>"
@@ -503,11 +532,11 @@ shader ColorLab
 	fea_push_back_knot(in_k4_mode, 1.0, in_k4_color, knots[knots_size - 1].hcl,
 			in_k4_hcl_offset, knots, knots_size);
 
-	color hcl_result = fea_lab_interpolate(val, knots, knots_size, gradients);
+	color hcl_result = fea_lab_interpolate(val, in_mix_mode, knots, knots_size, gradients);
 	out_color = fea_transformc("okhcl", "rgb", hcl_result);
 
 	// Debug out-of-range.
-	if (in_debug_out_of_range) {
+	if (in_debug) {
 		for (int i = 0; i < 3; ++i) {
 			if (out_color[i] > 1.0) {
 				out_color = color(1,0,1);

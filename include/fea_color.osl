@@ -184,8 +184,10 @@ color fea_oklab_to_okhcl(color lab) {
 
 color fea_okhcl_to_oklab(color hcl) {
 	float h = fea_deg_to_rad(hcl[0]);
-	float c = clamp(hcl[1], 0.0000001, 1.0);
-	float l = clamp(hcl[2], 0.0, 1.0);
+	// float c = clamp(hcl[1], 0.0000001, 1.0);
+	// float l = clamp(hcl[2], 0.0, 1.0);
+	float c = hcl[1] < 0.0000001 ? 0.0000001 : hcl[1];
+	float l = hcl[2] < 0.0 ? 0.0 : hcl[2];
 
 	float msin = 0.0;
 	float mcos = 0.0;
