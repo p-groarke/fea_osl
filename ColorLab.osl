@@ -378,7 +378,7 @@ shader ColorLab
 [[
 	string help  =
 		"<h3>Color Lab</h3>"
-		"A color scheme and gradient playground, in Oklab color space."
+		"A color scheme, palette and gradient playground, in Oklab or Okhcl color space."
 		,
 	string label = "Color Lab"
 ]]
@@ -423,6 +423,7 @@ shader ColorLab
 		string widget = "checkBox",
 	]],
 
+#if 0
 	int in_debug  = 0
 	[[
 		string label = "Debug Out-of-range Colors",
@@ -431,6 +432,7 @@ shader ColorLab
 		int connectable = 0,
 		string widget = "checkBox",
 	]],
+#endif
 
 	FEA_SPACER(0),
 	FEA_TITLE(0, "Knot 1 (Base Knot)"),
@@ -536,6 +538,7 @@ shader ColorLab
 	out_color = fea_transformc("okhcl", "rgb", hcl_result);
 
 	// Debug out-of-range.
+#if 0
 	if (in_debug) {
 		for (int i = 0; i < 3; ++i) {
 			if (out_color[i] > 1.0) {
@@ -546,5 +549,6 @@ shader ColorLab
 			}
 		}
 	}
+#endif
 }
 
