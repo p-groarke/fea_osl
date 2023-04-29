@@ -11,6 +11,9 @@
 ### Backward Compatibility
 To prevent breaking pre-existing scenes that use the shader pack, or changing their looks, the shader folder now comes versioned by default. It is recommended to **keep the version** in the folder name. This will allow you to upgrade without breaking any old scenes.
 
+## Color Lab
+An Oklab / Okhcl color gradient and color scheme playground.
+
 ## Color Scheme
 A utility helper which applies various color schemes to gradient maps. Includes a flatten and contour option.
 
@@ -20,6 +23,9 @@ A utility helper which applies various color schemes to gradient maps. Includes 
 A utility helper to mask colors above or below an intensity threshold, or mask a picked color or intensity.
 
 <img src="doc/img/color_threshold.gif" width="49%" title="Color Threshold Demo" alt="Color Threshold Demo">
+
+## Component Min/Max/Average
+Per component helper nodes.
 
 ## Curvalicious
 Curvalicious is a fast (no raytracing) screen-space curvature shader. It outputs various maps related to curvature, edge detection and concave / convex faces.
@@ -44,6 +50,9 @@ SimpleOcean is a Gerstner Wave implementation to simulate ocean vector displacem
 <img src="doc/img/simpleocean_test1.png" width="49%" title="Test Render 1" alt="Shader Example">
 
 [More details](doc/simple_ocean.md)
+
+## Tiling Simplex
+A spacially and temporally tiling simplex noise.
 
 
 # Build Instructions
