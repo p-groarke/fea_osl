@@ -14,7 +14,7 @@ shader ComponentAverageColor
 (
 	color in_vec = 0
 	[[
-		string label = "Input",
+		string label = "Input (vector)",
 		string help = "The vector to average."
 	]],
 
