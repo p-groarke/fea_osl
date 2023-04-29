@@ -2,7 +2,7 @@
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_functional_osl
-#define fea_functional_osl 1
+#define fea_functional_osl
 
 #define fea_imp_xe(eps) vector(eps, 0.0, 0.0)
 #define fea_imp_ye(eps) vector(0.0, eps, 0.0)
@@ -10,13 +10,14 @@
 
 // A simpler less expensive numerical gradient.
 // Basically Robert's Cross.
+// Assigns the results to out_vector
 //
 // Expected func signature :
-// float f(vector);
-#define fea_gradient_2d(x, eps, func) \
-	vector( \
-		func(x + fea_imp_xe(eps)) - func(x - fea_imp_xe(eps)), \
-		func(x + fea_imp_ye(eps)) - func(x - fea_imp_ye(eps)), \
+// float func(vector);
+#define fea_gradient_2d(coord, eps, func, out_vector) \
+	out_vector = vector( \
+		func(coord + fea_imp_xe(eps)) - func(coord - fea_imp_xe(eps)), \
+		func(coord + fea_imp_ye(eps)) - func(coord - fea_imp_ye(eps)), \
 		0.0 \
 	) / (2.0 * eps)
 
@@ -24,55 +25,185 @@
 // Basically Robert's Cross expanded in z.
 //
 // Expected func signature :
-// float f(vector);
-#define fea_gradient_3d(x, eps, func) \
-	vector( \
-		func(x + fea_imp_xe(eps)) - func(x - fea_imp_xe(eps)), \
-		func(x + fea_imp_ye(eps)) - func(x - fea_imp_ye(eps)), \
-		func(x + fea_imp_ze(eps)) - func(x - fea_imp_ze(eps)) \
+// float func(vector);
+#define fea_gradient_3d(coord, eps, func, out_vector) \
+	out_vector = vector( \
+		func(coord + fea_imp_xe(eps)) - func(coord - fea_imp_xe(eps)), \
+		func(coord + fea_imp_ye(eps)) - func(coord - fea_imp_ye(eps)), \
+		func(coord + fea_imp_ze(eps)) - func(coord - fea_imp_ze(eps)) \
 	) / (2.0 * eps)
 
-// Computes the distance from point x to your function.
-// That is : abs(f(x)) / abs(gradient(f(x)))
-// https://iquilezles.org/articles/distance/
-//
-// Expected func signature :
-// float f(vector);
-#define fea_distance_field_2d(x, eps, func) \
-	abs(func(x)) / length(fea_gradient_2d(x, eps, func))
 
 // Computes the distance from point x to your function.
 // That is : abs(f(x)) / abs(gradient(f(x)))
 // https://iquilezles.org/articles/distance/
 //
 // Expected func signature :
-// float f(vector);
-#define fea_distance_field_3d(x, eps, func) \
-	abs(func(x)) / length(fea_gradient_3d(x, eps, func))
+// float func(vector);
+#define fea_distance_to_func_2d(coord, eps, func, out_float) \
+{ \
+	vector grad = 0; \
+	fea_gradient_2d(coord, eps, func, grad); \
+	out_float = abs(func(coord)) / length(grad) \
+}
+
+// Computes the distance from point x to your function.
+// That is : abs(f(x)) / abs(gradient(f(x)))
+// https://iquilezles.org/articles/distance/
+//
+// Expected func signature :
+// float func(vector);
+#define fea_distance_to_func_3d(coord, eps, func, out_float) \
+{ \
+	vector grad = 0; \
+	fea_gradient_3d(coord, eps, func, grad); \
+	out_float = abs(func(coord)) / length(grad) \
+}
+
+
+// Returns a matrix filled with all neighboring values
+// of func evaluated with x +- eps and y +- eps.
+//
+// Expected func signature :
+// float func(vector);
+#define fea_neighbourhood_matrix_2d(coord, eps, func, out_matrix) \
+{ \
+	vector xeps = fea_imp_xe(eps); \
+	vector yeps = fea_imp_ye(eps); \
+\
+	/* topleft */ \
+	out_matrix[0][0] = func(coord - xeps + yeps); \
+	/* topcenter */ \
+	out_matrix[0][1] = func(coord + yeps); \
+	/* topright */ \
+	out_matrix[0][2] = func(coord + xeps + yeps); \
+	/* middleleft */ \
+	out_matrix[1][0] = func(coord - xeps); \
+	/* middlecenter */ \
+	out_matrix[1][1] = func(coord); \
+	/* middleright */ \
+	out_matrix[1][2] = func(coord + xeps); \
+	/* bottomleft */ \
+	out_matrix[2][0] = func(coord - xeps - yeps); \
+	/* bottomcenter */ \
+	out_matrix[2][1] = func(coord - yeps); \
+	/* bottomright */ \
+	out_matrix[2][2] = func(coord + xeps - yeps); \
+}
+
+// Sobel operator convolution.
+// Pass in a 3x3 neighbourhood matrix of data to convolve.
+//
+// x
+// |-1| 0| 1|
+// |-2| 0| 2|
+// |-1| 0| 1|
+// y
+// |-1|-2|-1|
+// | 0| 0| 0|
+// | 1| 2| 1|
+vector fea_sobel_gradient_2d(matrix m) {
+	float x = -m[0][0] + m[0][2]
+			- 2.0 * m[1][0] + 2.0 * m[1][2]
+			- m[2][0] + m[2][2];
+
+	float y = -m[0][0] - 2.0 * m[0][1]
+			- m[0][2] + m[2][0]
+			+ 2.0 * m[2][1] + m[2][2];
+
+	return vector(x, y, 0.0);
+}
+
+// Sharpen convolution.
+// Pass in a 3x3 neighbourhood matrix of data to convolve.
+float fea_sharpen_2d(matrix m) {
+	return -m[0][1] - m[1][0] + 5.0 * m[1][1] - m[1][2] - m[2][1];
+}
+
+// Blur convolution.
+// Pass in a 3x3 neighbourhood matrix of data to convolve.
+float fea_blur_2d(matrix m) {
+	return 0.0625 * (m[0][0] + m[0][2] + m[2][0] + m[2][2])
+			+ 0.125 * (m[0][1] + m[1][0] + m[1][2] + m[2][1])
+			+ 0.25 * m[1][1];
+}
+
+// Emboss convolution.
+// Pass in a 3x3 neighbourhood matrix of data to convolve.
+float fea_emboss_2d(matrix m) {
+	return -2.0 * m[0][0] - m[0][1]
+			- m[1][0] + m[1][1] + m[1][2]
+			+ m[2][1] + 2.0 * m[2][2];
+}
+
+// Outline convolution.
+// Pass in a 3x3 neighbourhood matrix of data to convolve.
+float fea_outline_2d(matrix m) {
+	return -m[0][0] - m[0][1] - m[0][2]
+			- m[1][0] + 8.0 * m[1][1] - m[1][2]
+			- m[2][0] - m[2][1] - m[2][2];
+}
+
+
+// Fixes Max bug where an input variable cannot be used as a
+// loop counter. Do the loop manually.
+#define fea_imp_fractalize(lacunarity, func, out_value) \
+{ \
+	fea_m_norm += fea_m_amp; \
+	out_value += func(fea_m_freq) * fea_m_amp; \
+	fea_m_freq *= lacunarity; \
+	fea_m_amp *= fea_m_inv_lacun; \
+}
 
 // Fractalizes functions.
 // Calls your function with frequency to evaluate.
-// Your function must return a type that has the following operators defined :
+//
+// Expected func signature :
+// type f(float);
+//
+// Your function return type must implement the following operators :
 // - add(value, value)
 // - multiply(value, float)
 // - divide(value, float)
+//
 // The answer is stored in out_value.
 // WARNING : out_value MUST be initialized to 0.
+//
+// OTHER WARNING : This is temporarily capped at max 6 iterations,
+// until the for loop bug is fixed.
 #define fea_fractalize(iterations, lacunarity, func, out_value) \
 { \
+	float fea_m_inv_lacun = 1.0 / lacunarity; \
+	float fea_m_amp = fea_m_inv_lacun; \
+	float fea_m_freq = 1.0; \
+	float fea_m_norm = 0.0; \
+	if (iterations >= 1) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 2) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 3) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 4) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 5) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 6) fea_imp_fractalize(lacunarity, func, out_value) \
 	if (iterations >= 1) { \
-		float amp = 0.5; \
-		float inv_lacun = 1.0 / lacunarity; \
-		float freq = 1.0; \
-		float norm = amp; \
-		for (int i = 0; i < iterations; ++i) { \
-			out_value += func(freq) * amp; \
-			freq *= lacunarity; \
-			amp *= inv_lacun; \
-			norm += amp; \
-		} \
-		out_value /= norm; \
+		out_value /= fea_m_norm; \
 	} \
 }
+
+// Backup
+// #define fea_fractalize(iterations, lacunarity, func, out_value) \
+// { \
+// 	if (iterations >= 1) { \
+// 		float fea_m_inv_lacun = 1.0 / lacunarity; \
+// 		float fea_m_amp = fea_m_inv_lacun; \
+// 		float fea_m_freq = 1.0; \
+// 		float fea_m_norm = 0.0; \
+// 		for (int fea_m_i = 0; fea_m_i < iterations; ++fea_m_i) { \
+// 			fea_m_norm += fea_m_amp; \
+// 			out_value += func(fea_m_freq) * fea_m_amp; \
+// 			fea_m_freq *= lacunarity; \
+// 			fea_m_amp *= fea_m_inv_lacun; \
+// 		} \
+// 		out_value /= fea_m_norm; \
+// 	} \
+// }
 
 #endif // fea_functional_osl

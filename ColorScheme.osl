@@ -5,6 +5,7 @@
 
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_color.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
 
 #define degs30 0.0833333333333333
 #define degs60 0.1666666666666667

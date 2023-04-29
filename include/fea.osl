@@ -2,10 +2,8 @@
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_osl
-#define fea_osl 1
+#define fea_osl
 
-#define FEA_RPACK_W 50
-#define FEA_SPACER(n) int __spacer##n = 0 [[string widget = "checkBox", int connectable = 0, int widgetWidth = 1]],
 #define FEA_FLT_MAX 3.402823e+38
 
 /**
@@ -13,72 +11,41 @@
  */
 
 // Converts a precentage to radian.
-// Expects percent 0.0 to 1.0.
 float fea_per_to_rad(float percent) {
 	return percent * M_2PI;
 }
 
 // Converts a radian to percentage.
-// Returns percent 0.0 to 1.0.
 float fea_rad_to_per(float rad) {
 	return rad * 0.15915494309189498;
+}
+
+// Converts a precentage to degree.
+float fea_per_to_deg(float percent) {
+	return percent * 360.0;
+}
+
+// Converts a degree to percentage.
+float fea_deg_to_per(float deg) {
+	return deg * 0.00277777777777778;
+}
+
+// Converts a degree to radian.
+float fea_deg_to_rad(float deg) {
+	return radians(deg);
+	// return deg * 0.01745329251994330;
+}
+
+// Converts a radian to degree.
+float fea_rad_to_deg(float rad) {
+	return degrees(rad);
+	// return rad * 57.295779513082321;
 }
 
 // Given a radian angle, returns a 2d vector pointing
 // in that direction.
 vector fea_angle_to_vec(float rad) {
 	return vector(cos(rad), sin(rad), 0);
-}
-
-
-/**
- * Convolutions
- */
-
-// Sobel operator convolution.
-// Pass in a 3x3 matrix of data to convolve.
-// x
-// |-1| 0| 1|
-// |-2| 0| 2|
-// |-1| 0| 1|
-// y
-// |-1|-2|-1|
-// | 0| 0| 0|
-// | 1| 2| 1|
-vector fea_sobel_gradient(matrix m) {
-	float x = -m[0][0] + m[0][2] - 2 * m[1][0] + 2 * m[1][2]
-			- m[2][0] + m[2][2];
-
-	float y = -m[0][0] - 2 * m[0][1] - m[0][2]
-			+ m[2][0] + 2 * m[2][1] + m[2][2];
-
-	return vector(x, y, 0);
-}
-
-// Sharpen convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_sharpen(matrix m) {
-	return -m[0][1] - m[1][0] + 5 * m[1][1] - m[1][2] - m[2][1];
-}
-
-// Blur convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_blur(matrix m) {
-	return 0.0625 * (m[0][0] + m[0][2] + m[2][0] + m[2][2])
-			+ 0.125 * (m[0][1] + m[1][0] + m[1][2] + m[2][1])
-			+ 0.25 * m[1][1];
-}
-
-// Emboss convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_emboss(matrix m) {
-	return -2 * m[0][0] - m[0][1] - m[1][0] + m[1][1] + m[1][2] + m[2][1] + 2 * m[2][2];
-}
-
-// Outline convolution.
-// Pass in a 3x3 matrix of data to convolve.
-float fea_outline(matrix m) {
-	return -m[0][0] - m[0][1] - m[0][2] - m[1][0] + 8 * m[1][1] - m[1][2] - m[2][0] - m[2][1] - m[2][2];
 }
 
 
@@ -106,6 +73,107 @@ vector fea_floor_to(vector val, float decimal_mul) {
 	);
 }
 
+// Given x in the range [a, b], converts to percentage.
+//
+// That is, if x == a, returns 0, if x == b, return 1.
+float fea_per(float x, float a, float b) {
+	return (x - a) / (b - a);
+}
+
+// Given x in the range [a, b], returns the inverse percentage.
+//
+// That is, if x == a, returns 1, if x == b, return 0.
+float fea_per_inv(float x, float a, float b) {
+	return (b - x) / (b - a);
+}
+
+// Linearly interpolate x between a and b.
+// x is clamped to [0, 1].
+float fea_lerp(float x, float a, float b) {
+	return a + x * (b - a);
+	// return (1.0 - x) * a + x * b;
+}
+// color fea_lerp(float x, color a, color b) {
+// 	return color(
+// 		fea_lerp(x, a[0], b[0]),
+// 		fea_lerp(x, a[1], b[1]),
+// 		fea_lerp(x, a[2], b[2])
+// 	);
+// }
+
+// Given an input x and a crest point >= 0,
+// creates an inverted V-shaped graph where maximum = crest point.
+float fea_corner_inflection(float x, float crest_point) {
+	float cp = crest_point < 0.0 ? 0.0 : crest_point;
+	return 1.0 - (abs(cp - x) / cp);
+}
+
+// With x in the range [from_a, from_b], lerp to the range [to_a, to_b].
+// Aka, lerp where x is not between 0, 1.
+float fea_lerp(float x, float from_a, float from_b, float to_a, float to_b) {
+	// Remap x into percentage.
+	float per = fea_per(x, from_a, from_b);
+
+	// Typical lerp.
+	return fea_lerp(x, to_a, to_b);
+}
+
+
+// Staircase interpolate x between a and b, according to steps.
+float fea_staircase_interp(float x, int in_steps, float a, float b) {
+	float steps = float(in_steps);
+	float per = round(x * steps) / steps;
+	return fea_lerp(per, a, b);
+}
+
+// With x in the range [from_a, from_b], staircase interpolate
+// to the range [to_a, to_b].
+// Aka, staircase_interp where x is not between 0, 1.
+// x is clamped to [from_a, from_b].
+float fea_staircase_interp(float x, int in_steps, float from_a, float from_b,
+		float to_a, float to_b) {
+	// Remap x into percentage.
+	float per = fea_per(x, from_a, from_b);
+	// Typical interpolation.
+	return fea_staircase_interp(per, in_steps, to_a, to_b);
+}
+
+// Interpolates x, according to the k control, between a and b.
+//
+// x is clamped to [0, 1]
+// k > 0, exponential
+// k == 0, linear
+// k < 0, logarithmic
+//
+// https://www.desmos.com/calculator/og836nvwmx
+float fea_interp(float x, float k, float a, float b) {
+	if (k == 0.0) {
+		return fea_lerp(x, a, b);
+	}
+
+	float per = (exp(k * x) - 1.0) / (exp(k) - 1.0);
+	return fea_lerp(per, a, b);
+}
+
+// With x in the range [from_a, from_b],
+// interpolate to the output range [to_a, to_b].
+// Using k to control the curve.
+//
+// x is clamped to [from_a, from_b].
+// k > 0, exponential
+// k == 0, linear
+// k < 0, logarithmic
+//
+// https://www.desmos.com/calculator/og836nvwmx
+float fea_interp(float x, float k, float from_a, float from_b, float to_a, float to_b) {
+	// Remap x into percentage.
+	float per = fea_per(x, from_a, from_b);
+
+	// Typical interp.
+	return fea_interp(per, k, to_a, to_b);
+}
+
+// Original func, legacy.
 // Play with k,
 // https://www.desmos.com/calculator/og836nvwmx
 // k > 0, exponential
@@ -121,6 +189,71 @@ float fea_interp(float k, float percent) {
 		ret = (exp(k * percent) - 1.0) / (exp(k) - 1.0);
 	}
 	return ret;
+}
+
+// Given x, an alpha constant (0.5 == centripetal), and 4 points.
+// Computes the catmull-rom interpolation of the point at x.
+//
+// https://en.wikipedia.org/wiki/Centripetal_Catmull%E2%80%93Rom_spline
+point fea_catmull_rom(float x, float alpha,
+		point p0, point p1, point p2, point p3) {
+
+	float get_t(float y, float alpha, point p0, point p1) {
+		vector dir = p1 - p0;
+		float a = dot(dir, dir); // sqr mag
+		float b = pow(a, alpha * 0.5);
+		return b + y;
+	}
+
+	// Get the tees.
+	// This effectively remaps (or transforms) the knot positions
+	// into a not-necessarily-uniform space.
+	// Which gives more or less importance to the curves before
+	// and after our desired segment.
+	float t0 = 0.0;
+	float t1 = get_t(t0, alpha, p0, p1);
+	float t2 = get_t(t1, alpha, p1, p2);
+	float t3 = get_t(t2, alpha, p2, p3);
+	float t = fea_lerp(x, t1, t2);
+
+	// Weigh the points given t's percentage (or inverse percentage)
+	// along the ranges.
+	point a1 = fea_per_inv(t, t0, t1) * p0 + fea_per(t, t0, t1) * p1;
+	point a2 = fea_per_inv(t, t1, t2) * p1 + fea_per(t, t1, t2) * p2;
+	point a3 = fea_per_inv(t, t2, t3) * p2 + fea_per(t, t2, t3) * p3;
+	point b1 = fea_per_inv(t, t0, t2) * a1 + fea_per(t, t0, t2) * a2;
+	point b2 = fea_per_inv(t, t1, t3) * a2 + fea_per(t, t1, t3) * a3;
+	point c  = fea_per_inv(t, t1, t2) * b1 + fea_per(t, t1, t2) * b2;
+	return c;
+}
+
+// Same as other catmull rom interpolation, but for floats.
+float fea_catmull_rom(float x, float alpha,
+		float p0, float p1, float p2, float p3) {
+
+	float get_t(float y, float alpha, float p0, float p1) {
+		float dir = p1 - p0;
+		float a = dir * dir; // sqr mag
+		float b = pow(a, alpha * 0.5);
+		return b + y;
+	}
+
+	// Get the tees.
+	float t0 = 0.0;
+	float t1 = get_t(t0, alpha, p0, p1);
+	float t2 = get_t(t1, alpha, p1, p2);
+	float t3 = get_t(t2, alpha, p2, p3);
+	float t = fea_lerp(x, t1, t2);
+
+	// Weigh the points given t's percentage (or inverse percentage)
+	// along the ranges.
+	float a1 = fea_per_inv(t, t0, t1) * p0 + fea_per(t, t0, t1) * p1;
+	float a2 = fea_per_inv(t, t1, t2) * p1 + fea_per(t, t1, t2) * p2;
+	float a3 = fea_per_inv(t, t2, t3) * p2 + fea_per(t, t2, t3) * p3;
+	float b1 = fea_per_inv(t, t0, t2) * a1 + fea_per(t, t0, t2) * a2;
+	float b2 = fea_per_inv(t, t1, t3) * a2 + fea_per(t, t1, t3) * a3;
+	float c  = fea_per_inv(t, t1, t2) * b1 + fea_per(t, t1, t2) * b2;
+	return c;
 }
 
 float fea_average(vector in) {
@@ -166,44 +299,8 @@ vector fea_ucos(vector x) {
 	return (cos(x) + 1.0) * 0.5;
 }
 
-
-/**
- * Algorithms & Typical coding
- */
-
-#define fea_swap(type, v1, v2) \
-{ \
-	type temp = v1; \
-	v1 = v2; \
-	v2 = temp; \
+int fea_near(float x, float target, float eps) {
+	return abs(target - x) < eps;
 }
 
-// #define fea_erase(arr, size, i) \
-// if (i < size) { \
-// 	arr[i] = arr[size - 1]; \
-// 	--size; \
-// }
-
-void fea_erase(output float data[], output int size, int i) {
-	if (i < size) {
-		data[i] = data[size - 1];
-		--size;
-	}
-}
-void fea_erase(output point data[], output int size, int i) {
-	if (i < size) {
-		data[i] = data[size - 1];
-		--size;
-	}
-}
-
-#define fea_runtime_array(struct_name, type, max_size) \
-struct struct_name { \
-	type data[max_size]; \
-	int size; \
-}; \
-\
-void fea_erase(output struct_name arr, int i) { \
-	fea_erase(arr.data, arr.size, i); \
-}
 #endif // fea_osl

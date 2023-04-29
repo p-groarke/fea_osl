@@ -32,13 +32,6 @@ parseIncludePath s = do
 	-- assert (length wrds == 2) wrds
 	tail (init (last wrds))
 
-readInclude :: String -> IO String
-readInclude l = do
-	let path = last (words l)
-	if "\"" `isInfixOf` path
-	then readFile (parseIncludePath l)
-	else return l
-
 {- Impure -}
 getFeaVer :: IO String
 getFeaVer = do
@@ -65,6 +58,13 @@ getZipFilename = do
 	let n = "FeaOSL-" ++ ver ++ ".zip"
 	return n
 
+readInclude :: String -> IO String
+readInclude l = do
+	let path = last (words l)
+	if "\"" `isInfixOf` path
+	then parseFile (parseIncludePath l)
+	else return l
+
 replaceInclude :: String -> IO String
 replaceInclude contents = do
 	f_lines <- mapM
@@ -77,6 +77,11 @@ replaceInclude contents = do
 
 	return (unlines f_lines)
 
+parseFile :: String -> IO String
+parseFile filename = do
+	contents <- readFile filename
+	new_contents <- replaceInclude contents
+	return new_contents
 
 writeToTemp :: FilePath -> String -> IO ()
 writeToTemp filepath contents = do
@@ -117,8 +122,7 @@ main = do
 			files
 
 	-- Replace osl #include statements with target file contents.
-	osl_file_contents <- mapM readFile osl_filepaths
-	new_file_contents <- mapM replaceInclude osl_file_contents
+	new_file_contents <- mapM parseFile osl_filepaths
 	zipWithM_ writeToTemp osl_filepaths new_file_contents
 
 	-- Now, zip everything in the temp directory.

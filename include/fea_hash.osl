@@ -2,16 +2,8 @@
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_hash_osl
-#define fea_hash_osl 1
-
-#ifndef fea_glsl_compat_osl
-float fract(float in) {
-	return in - floor(in);
-}
-vector fract(vector in) {
-	return in - floor(in);
-}
-#endif
+#define fea_hash_osl
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_glsl_compat.osl"
 
 vector fea_hash1_osl(float seed, vector p) {
 	vector q = noise("hash", p, seed);

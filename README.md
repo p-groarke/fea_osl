@@ -9,7 +9,7 @@
 - You should see the shaders in your material editor drop-down on next 3dsMax launch.
 
 ### Backward Compatibility
-To prevent breaking pre-existing scenes that use the shader pack, or changing their looks, the shader folder now comes versioned by default. It is recommended to **keep the version** in the folder name. This will allow you to upgrade without breaking any old scenes. Eventually of course, you'd likely want to clean up old versions. For example when a project finishes. But you will always be able to "go backward in time" by downloading an old pack and installing it with the versioned folder name.
+To prevent breaking pre-existing scenes that use the shader pack, or changing their looks, the shader folder now comes versioned by default. It is recommended to **keep the version** in the folder name. This will allow you to upgrade without breaking any old scenes.
 
 ## Color Scheme
 A utility helper which applies various color schemes to gradient maps. Includes a flatten and contour option.

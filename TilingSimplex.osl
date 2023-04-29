@@ -4,15 +4,18 @@
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_functional.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_phase.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
+
 
 shader TilingSimplex
 [[
+	string label = "Tiling Simplex",
 	string help	=
 		"<h3>Tiling Simplex</h3>"
-		"A tiling simplex noise.<br>Port of Stefan Gustavson's and Ian McEwan's GLSL implementation."
+		"A spacially and temporally tiling simplex noise.<br>"
+		"Port of Stefan Gustavson's and Ian McEwan's GLSL implementation."
 		,
-	string label = "Tiling Simplex"
 ]]
 (
 	int in_fbm_octaves = 3
@@ -20,58 +23,95 @@ shader TilingSimplex
 		string label = "Octaves",
 		string help = "How many octaves used for the fractal brownian motion (clouds).",
 		int min = 1,
+		int max = 6,
+		int connectable = 0,
+		// string packName = "Octaves / Lacunarity",
 	]],
 
 	float in_lacunarity = 1.8
 	[[
 		string label = "Lacunarity",
 		string help = "The frequency growth factor used by the fractalization.",
+		float min = 0.01,
+		int connectable = 0,
+		// string packName = "Octaves / Lacunarity",
 	]],
 
 	vector in_tiling = 0.0
 	[[
-		string label = "Tiling",
-		string help = "These are the x, y, z periods, used to tile the noise. '0' means no tiling.",
+		string label = "Tile Size",
+		string help = "These are the x, y, z periods, used to tile the noise. [0, 0, 0] disables tiling (infinite noise).",
 		float max = 289.0,
-	]],
-
-	float in_phase = 0.0
-	[[
-		string label = "Phase",
-		string help = "Used to animate the noise. Rotates the underlying random points.",
-	]],
-
-	float in_uv_scale = 1.0
-	[[
-		string label = "UV Scale",
-		string help = "Scale your UVWs up or down. For more betterer transformations, use UVW Transform node.",
-		float min = 0.00001,
 		int connectable = 0,
 	]],
 
-	point in_uvw = transform("object", P)
+	FEA_SPACER(0),
+
+	float in_low_clamp = 0.0
 	[[
-		string label = "UVW",
-		string help = "Transformed UVW coordinates. Animate 'w' with scene time for interesting results.",
+		string label = "Low Value",
+		string help = "The minimum value of the noise. Hard clamped.",
+		float min = 0.0,
+		float max = 1.0,
+		// string packName = "High / Low Clamp",
 	]],
 
-	output color Out = 0,
-	output color Gradient = 0,
-	output color SecondDeriv = 0,
-	output color SecondDeriv2 = 0
+	float in_high_clamp = 1.0
+	[[
+		string label = "High Value",
+		string help = "The maximum value of the noise. Hard clamped.",
+		float min = 0.0,
+		float max = 1.0,
+		// string packName = "High / Low Clamp",
+	]],
+
+	color in_low_color = 0
+	[[
+		string label = "Low Color",
+		string help = "The dark color (noise == 0).",
+	]],
+
+	color in_high_color = 1
+	[[
+		string label = "High Color",
+		string help = "The light color (noise == 1).",
+	]],
+
+	FEA_WGT_PHASE_INPUTS,
+	FEA_WGT_UVW_INPUTS,
+
+	output color out_col = 0
+	[[
+		string label = "Out (color)"
+	]],
+	output float out_float = 0
+	[[
+		string label = "Out (float)"
+	]],
+	output vector out_gradient = 0
+	[[
+		string label = "Gradient (vector)"
+	]],
+	output vector out_second_deriv = 0
+	[[
+		string label = "2nd Derivative (vector)"
+	]],
+	output vector out_second_deriv2 = 0
+	[[
+		string label = "2nd Derivative 2 (vector)"
+	]]
 )
 {
-	point coord = in_uvw / in_uv_scale;
+	point coord = FEA_WGT_GET_UVW;
+	float phase = FEA_WGT_GET_PHASE;
 
-	fea_tsimplex_ret eval_noise(float freq) {
-		return fea_utsimplex(coord * freq, in_tiling * freq, in_phase);
-	}
+	fea_tsimplex_ret ret = fea_utsimplex_fbm(coord, in_fbm_octaves, in_lacunarity, in_tiling, phase);
+	ret.value = fea_lerp(ret.value, 0, 1, in_low_clamp, in_high_clamp);
 
-	fea_tsimplex_ret noisev = fea_make_tsimplex_ret();
-	fea_fractalize(in_fbm_octaves, in_lacunarity, eval_noise, noisev);
+	out_col = mix(in_low_color, in_high_color, ret.value);
 
-	Out = noisev.value;
-	Gradient = noisev.gradient;
-	SecondDeriv = noisev.dg;
-	SecondDeriv2 = noisev.dg2;
+	out_float = ret.value;
+	out_gradient = ret.gradient;
+	out_second_deriv = ret.dg;
+	out_second_deriv2 = ret.dg2;
 }

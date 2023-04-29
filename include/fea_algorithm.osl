@@ -1,0 +1,256 @@
+// fea_algorithm osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_algorithm_osl
+#define fea_algorithm_osl
+
+#define fea_swap(type, v1, v2) \
+{ \
+	type temp = v1; \
+	v1 = v2; \
+	v2 = temp; \
+}
+
+
+/* These are defined for arbitrary size OSL arrays of builtin types. */
+#define fea_imp_builtin_define_push_back(type) \
+void fea_push_back(type value, output type data[], output int size) { \
+	int len = arraylength(data); \
+	if (size < len) { \
+		data[size] = value; \
+		++size; \
+	} \
+}
+fea_imp_builtin_define_push_back(float)
+fea_imp_builtin_define_push_back(int)
+fea_imp_builtin_define_push_back(color)
+fea_imp_builtin_define_push_back(point)
+fea_imp_builtin_define_push_back(vector)
+fea_imp_builtin_define_push_back(matrix)
+
+#define fea_imp_builtin_define_pop_back(type) \
+void fea_pop_back(output type data[], output int size) { \
+	if (size > 0) { \
+		--size; \
+	} \
+}
+fea_imp_builtin_define_pop_back(float)
+fea_imp_builtin_define_pop_back(int)
+fea_imp_builtin_define_pop_back(color)
+fea_imp_builtin_define_pop_back(point)
+fea_imp_builtin_define_pop_back(vector)
+fea_imp_builtin_define_pop_back(matrix)
+
+#define fea_imp_builtin_define_erase(type) \
+void fea_erase(int idx, output type data[], output int size) { \
+	for (int i = idx; i < size - 1; ++i) { \
+		data[i] = data[i + 1]; \
+	} \
+	--size; \
+}
+fea_imp_builtin_define_erase(float)
+fea_imp_builtin_define_erase(int)
+fea_imp_builtin_define_erase(color)
+fea_imp_builtin_define_erase(point)
+fea_imp_builtin_define_erase(vector)
+fea_imp_builtin_define_erase(matrix)
+
+// Fast but changes order of items.
+#define fea_imp_builtin_define_fast_erase(type) \
+void fea_fast_erase(int idx, output type data[], output int size) { \
+	if (idx < size) { \
+		data[idx] = data[size - 1]; \
+		--size; \
+	} \
+}
+fea_imp_builtin_define_fast_erase(float)
+fea_imp_builtin_define_fast_erase(int)
+fea_imp_builtin_define_fast_erase(color)
+fea_imp_builtin_define_fast_erase(point)
+fea_imp_builtin_define_fast_erase(vector)
+fea_imp_builtin_define_fast_erase(matrix)
+
+#define fea_imp_builtin_define_insert(type) \
+void fea_insert(type value, int idx, output type data[], output int size) { \
+	int arr_len = arraylength(data); \
+	int len = min(size, arr_len - 1); \
+	for (int i = len; i > idx; --i) { \
+		data[i] = data[i - 1]; \
+	} \
+	data[idx] = value; \
+	if (size < arr_len) { \
+		++size; \
+	} \
+}
+fea_imp_builtin_define_insert(float)
+fea_imp_builtin_define_insert(int)
+fea_imp_builtin_define_insert(color)
+fea_imp_builtin_define_insert(point)
+fea_imp_builtin_define_insert(vector)
+fea_imp_builtin_define_insert(matrix)
+
+#define fea_imp_builtin_define_front(type) \
+type fea_front(output type data[], output int size) { \
+	type ret; \
+	if (size > 0) { \
+		ret = data[0]; \
+	} \
+	return ret; \
+}
+fea_imp_builtin_define_front(float)
+fea_imp_builtin_define_front(int)
+fea_imp_builtin_define_front(color)
+fea_imp_builtin_define_front(point)
+fea_imp_builtin_define_front(vector)
+fea_imp_builtin_define_front(matrix)
+
+#define fea_imp_builtin_define_back(type) \
+type fea_back(output type data[], output int size) { \
+	type ret; \
+	if (size > 0) { \
+		ret = data[size - 1]; \
+	} \
+	return ret; \
+}
+fea_imp_builtin_define_back(float)
+fea_imp_builtin_define_back(int)
+fea_imp_builtin_define_back(color)
+fea_imp_builtin_define_back(point)
+fea_imp_builtin_define_back(vector)
+fea_imp_builtin_define_back(matrix)
+
+
+/* The following are used when defining your own arrays. */
+#define fea_imp_define_push_back(type, max_size) \
+void fea_push_back(type value, output type data[max_size], output int size) { \
+	if (size < max_size) { \
+		data[size] = value; \
+		++size; \
+	} \
+}
+
+#define fea_imp_define_pop_back(type, max_size) \
+void fea_pop_back(output type data[max_size], output int size) { \
+	if (size > 0) { \
+		--size; \
+	} \
+}\
+
+#define fea_imp_define_erase(type, max_size) \
+void fea_erase(int idx, output type data[max_size], output int size) { \
+	for (int i = idx; i < size - 1; ++i) { \
+		data[i] = data[i + 1]; \
+	} \
+	if (size > 0) { \
+		--size; \
+	} \
+}
+
+// Fast but changes order of items.
+#define fea_imp_define_fast_erase(type, max_size) \
+void fea_fast_erase(int idx, output type data[max_size], output int size) { \
+	if (idx < size - 1) { \
+		data[idx] = data[size - 1]; \
+	} \
+	if (size > 0) { \
+		--size; \
+	} \
+}
+
+#define fea_imp_define_insert(type, max_size) \
+void fea_insert(type value, int idx, output type data[max_size], output int size) { \
+	int len = min(size, max_size - 1); \
+	for (int i = len; i > idx; --i) { \
+		data[i] = data[i - 1]; \
+	} \
+	data[idx] = value; \
+	if (size < max_size) { \
+		++size; \
+	} \
+}
+
+#define fea_imp_define_front(type, max_size) \
+type fea_front(output type data[max_size], output int size) { \
+	type ret; \
+	if (size > 0) { \
+		ret = data[0]; \
+	} \
+	return ret; \
+}
+
+#define fea_imp_define_back(type, max_size) \
+type fea_back(output type data[max_size], output int size) { \
+	type ret; \
+	if (size > 0) { \
+		ret = data[size - 1]; \
+	} \
+	return ret; \
+}
+
+// Defines a struct named fea_array_type+max_size,
+// which acts like a std::vector. Also defines useful functions for it.
+#define fea_define_array(type, max_size) \
+/* Struct with name fea_array_typemax_size. Ex, fea_array_float4 */ \
+struct fea_array_##type##max_size { \
+	type data[max_size]; \
+	int size; \
+}; \
+/* Default constructor. */ \
+void fea_init(output fea_array_##type##max_size arr) { \
+	arr.size = 0; \
+} \
+/* "Member" functions. */ \
+fea_imp_define_push_back(type, max_size) \
+void fea_push_back(type value, output fea_array_##type##max_size arr) { \
+	fea_push_back(value, arr.data, arr.size); \
+} \
+fea_imp_define_pop_back(type, max_size) \
+void fea_pop_back(output fea_array_##type##max_size arr) { \
+	fea_pop_back(arr.data, arr.size); \
+} \
+fea_imp_define_erase(type, max_size) \
+void fea_erase(int idx, output fea_array_##type##max_size arr) { \
+	fea_erase(idx, arr.data, arr.size); \
+} \
+fea_imp_define_fast_erase(type, max_size) \
+void fea_fast_erase(int idx, output fea_array_##type##max_size arr) { \
+	fea_fast_erase(idx, arr.data, arr.size); \
+} \
+fea_imp_define_insert(type, max_size) \
+void fea_insert(type value, int idx, output fea_array_##type##max_size arr) { \
+	fea_insert(value, idx, arr.data, arr.size); \
+} \
+fea_imp_define_front(type, max_size) \
+type fea_front(output fea_array_##type##max_size arr) { \
+	return fea_front(arr.data, arr.size); \
+} \
+fea_imp_define_back(type, max_size) \
+type fea_back(output fea_array_##type##max_size arr) { \
+	return fea_back(arr.data, arr.size); \
+}
+
+// fea_define_array(float, 4)
+// fea_define_array(float, 8)
+// fea_define_array(float, 16)
+
+// fea_define_array(int, 4)
+// fea_define_array(int, 8)
+// fea_define_array(int, 16)
+
+// fea_define_array(color, 4)
+// fea_define_array(color, 8)
+// fea_define_array(color, 16)
+
+// fea_define_array(point, 4)
+// fea_define_array(point, 8)
+// fea_define_array(point, 16)
+
+// fea_define_array(vector, 4)
+// fea_define_array(vector, 8)
+// fea_define_array(vector, 16)
+
+// fea_define_array(matrix, 4)
+// fea_define_array(matrix, 8)
+// fea_define_array(matrix, 16)
+
+#endif // fea_algorithm_osl

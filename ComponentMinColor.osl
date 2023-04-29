@@ -1,0 +1,29 @@
+// ComponentMinColor - Minimum color component.
+// ComponentMinColor by Philippe Groarke
+// Copyright 2023 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+shader ComponentMinColor
+[[
+	string help  =
+		"<h3>Component Min (color)</h3>"
+		"Returns the lowest value of RGB."
+		,
+	string label = "Component Min (color)"
+]]
+(
+	color in_color = 0
+	[[
+		string label = "Input",
+		string help = "The color to evaluate."
+	]],
+
+	output float out = 0.0
+	[[
+		string label = "Out (float)",
+		string help = "The mimimum component."
+	]]
+)
+{
+	out = min(in_color[0], min(in_color[1], in_color[2]));
+}

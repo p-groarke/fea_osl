@@ -1,0 +1,29 @@
+// ComponentMaxVector - Maximum vector component.
+// ComponentMaxVector by Philippe Groarke
+// Copyright 2023 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+shader ComponentMaxVector
+[[
+	string help  =
+		"<h3>Component Max (vector)</h3>"
+		"Returns the highest value of XYZ."
+		,
+	string label = "Component Max (vector)"
+]]
+(
+	color in_vec = 0
+	[[
+		string label = "Input",
+		string help = "The vector to evaluate."
+	]],
+
+	output float out = 0.0
+	[[
+		string label = "Out (float)",
+		string help = "The maximum component."
+	]]
+)
+{
+	out = max(in_vec[0], max(in_vec[1], in_vec[2]));
+}

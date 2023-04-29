@@ -4,7 +4,9 @@
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_color.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_functional.osl"
 
 #define noise_t int
 
@@ -235,7 +237,7 @@ shader OrganicNoise
 		int widgetWidth = FEA_RPACK_W,
 	]],
 
-	FEA_SPACER(1)
+	FEA_SPACER(1),
 
 	int over_sampling = 0
 	[[
@@ -284,7 +286,7 @@ shader OrganicNoise
 		string packName = "Over-Sampling Noise / Blend",
 	]],
 
-	FEA_SPACER(2)
+	FEA_SPACER(2),
 
 	int girth_mode = 0
 	[[
@@ -333,7 +335,7 @@ shader OrganicNoise
 		float max = 0.9,
 	]],
 
-	FEA_SPACER(6)
+	FEA_SPACER(6),
 
 	int step_mode = 0
 	[[
@@ -374,7 +376,7 @@ shader OrganicNoise
 		string packName = "Interpolate / Clamp",
 	]],
 
-	FEA_SPACER(3)
+	FEA_SPACER(3),
 
 	float sampling_dist = 1
 	[[
@@ -460,7 +462,7 @@ shader OrganicNoise
 		noise_v = sample_area[1][1];
 
 		// Compute gradient of noise.
-		grad = fea_sobel_gradient(sample_area);
+		grad = fea_sobel_gradient_2d(sample_area);
 	}
 
 	if (noise_effect == 1) {
@@ -471,16 +473,16 @@ shader OrganicNoise
 		noise_v = fea_interp(-10, noise_v);
 	} else if (noise_effect == 3) {
 		// sharpen
-		noise_v = fea_sharpen(sample_area);
+		noise_v = fea_sharpen_2d(sample_area);
 	} else if (noise_effect == 4) {
 		// blur
-		noise_v = fea_blur(sample_area);
+		noise_v = fea_blur_2d(sample_area);
 	} else if (noise_effect == 5) {
 		// emboss
-		noise_v = fea_emboss(sample_area);
+		noise_v = fea_emboss_2d(sample_area);
 	} else if (noise_effect == 6) {
 		// outline
-		noise_v = fea_outline(sample_area);
+		noise_v = fea_outline_2d(sample_area);
 	}
 
 	float mag = length(grad);
