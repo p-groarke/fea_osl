@@ -156,28 +156,13 @@ float fea_fancy_step(int step_mode, int step_amount, float in_val) {
 	return fea_blend(step_mode, in_val, val);
 }
 
-// Average color components.
-float fea_average(color in) {
-	return (in[0] + in[1] + in[2]) / 3.0;
-}
-
-// For max viewport, :/
-// TODO : Find an OK implementation, without bit fiddling.
-float fea_cbrt(float x) {
-	return pow(abs(x), 0.33333333333333333);
-}
-
 color fea_oklab_to_okhcl(color lab) {
 	float l = lab[0];
 	float a = lab[1];
 	float b = lab[2];
 
 	// Note : atan2(0/0) differs in viewport from render, fix it.
-	float h = 0.0;
-	if (a != 0.0 && b != 0.0) {
-		h = fea_rad_to_deg(atan2(b, a));
-	}
-
+	float h = fea_rad_to_deg(fea_atan2(b, a));
 	float c = sqrt(a * a + b * b);
 	return color(h, c, l);
 }
