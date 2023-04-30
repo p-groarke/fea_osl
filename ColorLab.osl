@@ -19,9 +19,7 @@ int in_k##n##_mode = 1 \
 		, \
 	string help = \
 		"Absolute Mode : The knot uses a specific color.<br>" \
-		"Relative Mode : Unlike other knots, when the base knot " \
-			"is in relative mode, it uses the Base Color map input as a " \
-			"source.<br>", \
+		"Relative Mode : The knot uses HCL offset, applied to the previous knot or base color (if Knot 1).<br>", \
 	int connectable = 0, \
 ]], \
 color in_k##n##_color = color(1, 0, 0) \

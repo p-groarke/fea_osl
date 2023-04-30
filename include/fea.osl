@@ -256,7 +256,13 @@ float fea_catmull_rom(float x, float alpha,
 	return c;
 }
 
+// Average vector components.
 float fea_average(vector in) {
+	return (in[0] + in[1] + in[2]) / 3.0;
+}
+
+// Average color components.
+float fea_average(color in) {
 	return (in[0] + in[1] + in[2]) / 3.0;
 }
 
@@ -303,4 +309,19 @@ int fea_near(float x, float target, float eps) {
 	return abs(target - x) < eps;
 }
 
+// For max viewport, :/
+// TODO : Find an OK implementation, without bit fiddling.
+float fea_cbrt(float x) {
+	return pow(abs(x), 0.33333333333333333);
+}
+
+// atan2 compatible in both viewport and renderer.
+// Note : atan2(0/0) is undefined in viewport, fix it.
+float fea_atan2(float y, float x) {
+	float ret = 0.0;
+	if (x != 0.0 && y != 0.0) {
+		ret = atan2(y, x);
+	}
+	return ret;
+}
 #endif // fea_osl
