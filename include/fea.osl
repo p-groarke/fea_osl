@@ -308,6 +308,9 @@ vector fea_ucos(vector x) {
 int fea_near(float x, float target, float eps) {
 	return abs(target - x) < eps;
 }
+int fea_near(vector x, vector target, float eps) {
+	return length(target - x) < eps;
+}
 
 // For max viewport, :/
 // TODO : Find an OK implementation, without bit fiddling.
@@ -324,4 +327,63 @@ float fea_atan2(float y, float x) {
 	}
 	return ret;
 }
+
+// Transforms coordinate from one space to another.
+// Adds support to "tangent" space, in addition to OSL spaces.
+#define fea_imp_transform_gen(ptype) \
+ptype fea_transform(string from_space, string to_space, ptype x) { \
+	if (from_space == to_space) { \
+		return x; \
+	} \
+	if (from_space != "tangent" && to_space != "tangent") { \
+		return transform(from_space, to_space, x); \
+	} \
+\
+	/* Regardless, build TBN matrix. */ \
+	/* The normals and tangents are in world space. */ \
+	/* Note, we recompute the whole shebang to try and get */ \
+	/* a smooth TBN matrix. dPdu, dPdv are per vertex. */ \
+	normal n = N; \
+	vector t = normalize(dPdu); \
+	vector b = cross(n, t); \
+	t = cross(b, n); \
+\
+	matrix tbn = matrix( \
+		t[0], t[1], t[2], 0, \
+		b[0], b[1], b[2], 0, \
+		n[0], n[1], n[2], 0, \
+		0, 0, 0, 1 \
+	); \
+\
+	ptype ret = x; \
+	if (from_space == "tangent") { \
+		ret = transform(tbn, ret); \
+		if (to_space != "world") { \
+			ret = transform("world", to_space, ret); \
+		} \
+	} else if (to_space == "tangent") { \
+		matrix tbn_t = transpose(tbn); \
+		if (from_space != "world") { \
+			ret = transform(from_space, "world", ret); \
+		} \
+		ret = transform(tbn_t, ret); \
+	} \
+	return ret; \
+}
+
+fea_imp_transform_gen(point)
+fea_imp_transform_gen(vector)
+fea_imp_transform_gen(normal)
+
+// Assumes "common" from_space.
+point fea_transform(string to_space, point x) {
+	return fea_transform("common", to_space, x);
+}
+point fea_transform(string to_space, vector x) {
+	return fea_transform("common", to_space, x);
+}
+point fea_transform(string to_space, normal x) {
+	return fea_transform("common", to_space, x);
+}
+
 #endif // fea_osl

@@ -229,6 +229,47 @@ type fea_back(output fea_array_##type##max_size arr) { \
 	return fea_back(arr.data, arr.size); \
 }
 
+// Defines a struct named fea_array_type+max_size,
+// which acts like a std::vector. Also defines useful functions for it.
+#define fea_runtime_array(name, type, max_size) \
+/* Struct with name fea_array_typemax_size. Ex, fea_array_float4 */ \
+struct name { \
+	type data[max_size]; \
+	int size; \
+}; \
+/* Default constructor. */ \
+void fea_init(output name arr) { \
+	arr.size = 0; \
+} \
+/* "Member" functions. */ \
+fea_imp_define_push_back(type, max_size) \
+void fea_push_back(type value, output name arr) { \
+	fea_push_back(value, arr.data, arr.size); \
+} \
+fea_imp_define_pop_back(type, max_size) \
+void fea_pop_back(output name arr) { \
+	fea_pop_back(arr.data, arr.size); \
+} \
+fea_imp_define_erase(type, max_size) \
+void fea_erase(int idx, output name arr) { \
+	fea_erase(idx, arr.data, arr.size); \
+} \
+fea_imp_define_fast_erase(type, max_size) \
+void fea_fast_erase(int idx, output name arr) { \
+	fea_fast_erase(idx, arr.data, arr.size); \
+} \
+fea_imp_define_insert(type, max_size) \
+void fea_insert(type value, int idx, output name arr) { \
+	fea_insert(value, idx, arr.data, arr.size); \
+} \
+fea_imp_define_front(type, max_size) \
+type fea_front(output name arr) { \
+	return fea_front(arr.data, arr.size); \
+} \
+fea_imp_define_back(type, max_size) \
+type fea_back(output name arr) { \
+	return fea_back(arr.data, arr.size); \
+}
 // fea_define_array(float, 4)
 // fea_define_array(float, 8)
 // fea_define_array(float, 16)
