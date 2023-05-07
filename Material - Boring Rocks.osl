@@ -1,115 +1,396 @@
-// // Playground for whatever Shader
-// // Playground for whatever by Philippe Groarke
-// // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
-// // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+// BoringRocks - Everyone needs boring rocks once in a while.
+// BoringRocks by Philippe Groarke
+// Copyright 2023 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_phase.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_glsl_compat.osl"
 
-shader Playground
+shader BoringRocks
 [[
+	string label = "Material - Boring Rocks",
 	string help  =
-		"Sandbox"
-		,
-	string label = "Playground"
+		"Everyone needs boring rocks once in a while."
 ]]
 (
+	float in_normal_perturb = 1.0
+	[[
+		string label = "Normal Perturb",
+		string help = "The strength of normal perturbation [0, 1].",
+		float min = 0.0,
+		float max = 1.0,
+	]],
+	float in_displace_strength = 1.0
+	[[
+		string label = "Displacement Strength",
+		string help = "Multiplied to the displacement map output.",
+	]],
+	float in_reshape = 2.0
+	[[
+		string label = "Reshape Strength",
+		string help = "Applies very large displacement to shape the object.",
+		float min = 0.0,
+	]],
+	float in_variance = 1.0
+	[[
+		string label = "Variance Strength",
+		string help = "Strength of large areas multiplier.",
+		float min = 0.0,
+	]],
+	float in_scratch_strength = 0.5
+	[[
+		string label = "Scratch Strength",
+		string help = "Amount of scratch displacement.",
+		float min = 0.0,
+		float max = 1.0,
+	]],
+	float in_ridges = 0.5
+	[[
+		string label = "Ridges Strength",
+		string help = "Creates directional ridges.",
+		float min = 0.0,
+		float max = 1.0,
+	]],
+	float in_large_cracks = 1.0
+	[[
+		string label = "Large Cracks Strength",
+		string help = "Amount of large cracking.",
+		float min = 0.0,
+		float max = 1.0,
+	]],
+	float in_small_cracks = 0.5
+	[[
+		string label = "Small Cracks Strength",
+		string help = "Amount of subtle cracking.",
+		float min = 0.0,
+		float max = 1.0,
+	]],
+
 	FEA_WGT_PHASE_INPUTS,
 	FEA_WGT_UVW_INPUTS,
 
-	output vector Out = 0,
-	output vector Normal = 0,
-	output vector Normal2 = 0,
-	output float Displace = 0,
-	output vector Tangent = 0
+	output vector out_base_color = 0
+	[[
+		string label = "Base Color",
+		string help = "The output color map.",
+	]],
+	output color out_normal = 0
+	[[
+		string label = "Normal (color)",
+		string help = "The output normal map.<br>"
+			"Note, this output behaves as a normal texture does. "
+			"It must be fed in a Normal Bump node (or Arnold Normal Map) node. "
+			"The Y component must be flipped for Arnold.",
+	]],
+	output float out_displacement = 0
+	[[
+		string label = "Displacement (float)",
+		string help = "A tangent space single value displacement map.",
+	]]
 )
 {
+	// The space we'll be working in.
+	string working_space = "tangent";
 
-#if 1
 	fea_wgt_uvw_ret uvw_data = FEA_WGT_GET_UVW;
 	float phase = FEA_WGT_GET_PHASE;
+	vector scale = uvw_data.scale;
 
 	point coord = uvw_data.coord;
-	fea_tsimplex_ret ret = fea_utsimplex_fbm(coord, 20, 1.7, vector(0), phase);
-	Out = ret.value;
+	fea_tsimplex_ret noise1 = fea_utsimplex_fbm(coord, 15, 1.7, vector(0), phase);
+	fea_tsimplex_ret noise2 = fea_utsimplex_fbm((coord + phase * 10.0) / 10.0, 3, 1.8, vector(0), (phase + 1.5) * 10.0);
 
-	string working_space = "tangent";
 	vector up = fea_transform("world", working_space, N);
-	vector grad = fea_transform(uvw_data.coord_space, working_space, ret.gradient);
+	vector gradient1 = noise1.gradient * 0.2;
+	gradient1 = fea_transform(uvw_data.coord_space, working_space, gradient1);
+	vector surface_gradient1 = gradient1 - up * dot(gradient1, up);
 
-	{
-		// Surface gradient [Mik10].
-		grad = normalize(grad);
-		vector surf_grad = grad - up * dot(grad, up);
+	vector gradient2 = noise2.gradient * 0.2;
+	gradient2 = fea_transform(uvw_data.coord_space, working_space, gradient2);
+	vector surface_gradient2 = gradient2 - up * dot(gradient2, up);
 
-		// Derivative normal [Mik20]
-		vector n = normalize(up + 0.25 * surf_grad);
-		n = fea_transform(working_space, "tangent", n);
- 		n = n * 0.5 + 0.5;
-		Normal2 = n;
-	}
 
-	Displace = ret.value * 1.0;
+
+	// // Normal experiments.
 	// {
-	// 	vector fwd = normalize(grad);
-	// 	vector side = normalize(cross(fwd, up));
-	// 	vector n = normalize(cross(side, fwd));
-	// 	n = fea_transform(working_space, "tangent", n);
+	// 	// point streched_coord = fea_transform(uvw_data.coord_space, "tangent", coord);
+	// 	point streched_coord = coord;
+	// 	// streched_coord[0] /= 10.0;
+	// 	// vector dir = rotate(fea_xaxis, phase, fea_yaxis);
+	// 	// streched_coord *= dir;
+	// 	fea_tsimplex_ret noise3 = fea_utsimplex_fbm(streched_coord, 4, 1.8, vector(0), phase + 3452.5634);
 
-	// 	// Rectify for expected texture range [0,1];
- 	// 	n = n * 0.5 + 0.5;
-	// 	Normal = n;
+	// 	// vector n = fea_tsimplex_normal("tangent", noise3);
+
+	// 	vector ortho = fea_transform(uvw_data.coord_space, "tangent", noise3.gradient);
+	// 	ortho = rotate(ortho, M_PI_2, fea_zaxis);
+	// 	float a = dot(normalize(dPdu), normalize(ortho));
+	// 	vector dg_snap = fea_floor_to(noise3.dg, 10.0);
+	// 	out_base_color = dg_snap[1];
+
+	// 	vector up = fea_transform("world", "tangent", N);
+	// 	vector grad = noise3.gradient * 0.2;
+	// 	grad = fea_transform(uvw_data.coord_space, "tangent", grad);
+	// 	vector surf_grad = grad - up * dot(grad, up);
+	// 	// surf_grad = fea_floor_to(surf_grad, 0.1);
+	// 	// surf_grad = fea_xaxis + surf_grad;
+
+	// 	// float c = surf_grad[0] + surf_grad[1];// + surf_grad[2];
+	// 	// coord = fea_triangle_saw(coord);
+	// 	float c = coord[0] + coord[1] + coord[2];
+	// 	c = surf_grad[0] + surf_grad[1];// + surf_grad[2];
+	// 	// c = N[0] + N[1] + N[2];
+	// 	// c = abs(sin(c * noise3.value));
+	// 	// c = fea_triangle_saw(c);
+
+	// 	vector surf_grad_norm = normalize(surf_grad);
+	// 	// if (length(surf_grad) < 0.5) {
+	// 	// 	out_base_color = 0;
+	// 	// 	return;
+	// 	// }
+
+	// 	float a1 = dot(surf_grad_norm, fea_xaxis);
+	// 	vector cmp = rotate(fea_yaxis, phase, fea_xaxis);
+	// 	float a2 = dot(normalize(noise3.gradient), cmp);
+	// 	float a3 = dot(surf_grad_norm, -fea_xaxis);
+	// 	float a4 = dot(surf_grad_norm, -fea_yaxis);
+
+	// 	// if (abs(a1) > 0.9 || abs(a2) > 0.9 || abs(a3) > 0.9 || abs(a4) > 0.9) {
+	// 	float peak = fea_peak(noise1.value, 0.5);
+	// 	peak = fea_triangle_saw(noise1.value);
+	// 	out_displacement = peak * a2;
+	// 	return;
+	// 	if (noise3.value > 0.45 && noise3.value < 0.55) {
+	// 		float rect = a2 * 2.0 - 1.0;
+	// 		out_base_color = rect;
+	// 		out_displacement = a2;
+	// 	} else {
+	// 		out_base_color = 0;
+	// 	}
+	// 	return;
+
+	// 	c = fea_floor_to(length(surf_grad), 0.1);
+	// 	out_base_color = fea_triangle_saw(c);
+	// 	return;
+
+	// 	float v1 = length(fea_triangle_saw(coord + noise3.value));
+	// 	v1 = sin(v1);
+	// 	out_base_color = v1;
+	// 	return;
+
+	// 	c = sin(c * v1);
+	// 	// c = mod(c, 2.0) - 1.0;
+	// 	// c += noise3.value;
+	// 	// c /= 10.0;
+	// 	// c *= noise3.value * 0.1;
+	// 	// float v2 = fea_triangle_saw(c + noise3.value);
+	// 	// c *= noise3.value + 1.0;
+
+	// 	c = fea_triangle_saw((c + noise3.value));
+	// 	out_base_color = c;
+
+	// 	vector n = normalize(up + c * 2.0 * surf_grad);
+	// 	out_normal = n * 0.5 + 0.5;
+
+	// 	out_displacement = c * 10.0;
+	// 	// out_base_color = mix(v1, v2, noise3.value);
+	// 	return;
+
+	// 	// if (abs(a) > 0.5) {
+	// 	// 	out_base_color = a;
+	// 	// } else {
+	// 	// 	out_base_color = 0;
+	// 	// }
+	// 	// return;
+
+	// 	// // out_normal = n * 0.5 + 0.5;
+	// 	// out_base_color = noise3.value;
+	// 	// float c = coord[0] + coord[1] + coord[2];
+	// 	// float val = abs(sin(c * 0.1));
+	// 	// out_base_color = val;
 	// 	// return;
 	// }
 
-#else
-// 	point coord = in_uvw / in_uvw_scale;
-// 	// Curl Noise test
-// 	// float epsilon = 0.0001;
-// 	// point coord = in_uvw / in_uv_scale;
+	// Compute displacement.
+	{
 
-// 	// vector x_move = vector(epsilon, 0.0, 0.0);
-// 	// vector y_move = vector(0.0, epsilon, 0.0);
-
-// 	// float x1 = noise("usimplex", coord + x_move, in_phase);
-// 	// float x2 = noise("usimplex", coord - x_move, in_phase);
-// 	// float x_avg = (x1 - x2) / (2.0 * epsilon);
-
-// 	// float y1 = noise("usimplex", coord + y_move, in_phase);
-// 	// float y2 = noise("usimplex", coord - y_move, in_phase);
-// 	// float y_avg = (y1 - y2) / (2.0 * epsilon);
-
-// 	// // Rotate the uvs.
-
-// 	// // Out = coord + vector(y_avg, -x_avg, 0.0);
-// 	// // Out = coord + vector(y_avg + in_phase, -(x_avg + in_phase), 0.0);
-
-// 	// // Our func.
-// 	// // float test2 = (
-// 	// // 	float r = length(x);
-// 	// // 	float a = atan2(x[1], x[0]);
-// 	// // 	float test1 = r - 1.0 + 0.5 * sin(3.0 * a + 2.0 * r * r);
-// 	// // 	return test1;
-// 	// // );
+		// vector n1_dg = fea_transform(uvw_data.coord_space, working_space, noise1.dg * 0.2);
+		// vector n1_dg2 = fea_transform(uvw_data.coord_space, working_space, noise1.dg2 * 0.2);
+		// vector n2_dg = fea_transform(uvw_data.coord_space, working_space, noise2.dg * 0.2);
+		// vector n2_dg2 = fea_transform(uvw_data.coord_space, working_space, noise2.dg2 * 0.2);
+		// vector n1_dg_norm = normalize(n1_dg);
+		// vector n1_dg2_norm = normalize(n1_dg2);
+		// vector n2_dg_norm = normalize(n2_dg);
+		// vector n2_dg2_norm = normalize(n2_dg2);
 
 
-// 	// iq distance field test
-// 	float f(vector x) {
-// 		float r = length(x);
-// 		float a = atan2(x[1], x[0]);
-// 		float ret = r - 1.0 + 0.5 * sin(3.0 * a + 2.0 * r * r);
-// 		return ret;
-// 	}
+		float disp = (noise1.value + noise2.value) * 0.5;
+		// float disp = 0.0;
 
-// 	// mag(f(x)) / mag(grad(f(x))) == abs(f(x)) / mag(grad(f(x)))
-// 	float test1 = fea_distance_field_2d(coord * 0.1, 0.1, f);
+		// Shape
+		if (in_reshape != 0.0) {
+			// float g1 = length(noise1.gradient * 0.2);
+			// float g2 = length(noise2.gradient * 0.2);
+			// float big_disp = g1 * g1 + g2 * g2;
+			// big_disp = fea_peak(big_disp, 0.5);
+			// big_disp = fea_peak(length(noise2.gradient * 0.2), 0.1) * 0.1;
+			// big_disp *= big_disp;
+			// disp -= big_disp * in_reshape;
 
-// 	// Thresholding the function.
-// 	float eps = 0.01;
-// 	test1 = smoothstep(eps, eps * 1.5, test1);
-// 	Out = test1;
+			float m = length(surface_gradient2 / scale);
+			// m = sqrt(m * m);
+			// m = fea_triangle_saw(m);
+			// float c = clamp(m, 0, 1);
+			m -= fea_peak(m, 0.5) * 0.25;
+			disp -= m * in_reshape;
+		}
 
+#if 0
+		if (in_variance != 0.0) {
+			// float chunk_strength = 10.0;
+			// float chunky = smoothstep(0.5, 1.0, noise2.value) * chunk_strength;
+			// disp += chunky + noise1.value;
+
+			float chunky = linearstep(0.5, 1.0, disp) * in_variance;
+			disp *= chunky;
+			disp += noise1.value * 0.5;
+		}
+
+		// TODO
+			// float big_disp = length(noise1.gradient);
+			// big_disp = fea_triangle_saw(big_disp);
+			// disp -= big_disp * in_reshape;
+
+		// TODO plateaus
+			// float m = fea_gauss(length(surface_gradient1));
+			// disp -= m * in_reshape;
+
+		// Big cracks
+		if (in_large_cracks != 0.0) {
+			vector cmp = rotate(fea_xaxis, phase, fea_zaxis);
+			float a = dot(normalize(surface_gradient1), cmp);
+			float peak = fea_peak(noise1.value, 0.5);
+			disp += peak * a * noise2.value * in_large_cracks;
+		}
+
+		// Ridges
+		if (in_ridges != 0.0) {
+			vector cmp = rotate(fea_yaxis, phase * 0.1, fea_zaxis);
+			float a = dot(normalize(surface_gradient1), cmp);
+			a = fea_peak(a, 0.5);
+			float saw = fea_triangle_saw(noise1.value);
+			disp += saw * a * (1.0 - noise1.value) * in_ridges;
+		}
+
+		// scratches
+		if (in_scratch_strength != 0.0) {
+			float a = dot(n1_dg, n2_dg);
+			disp += a * 0.1 * in_scratch_strength;
+
+			a = dot(n1_dg2, n2_dg2);
+			disp += a * 0.1 * in_scratch_strength;
+		}
+
+		// // more bumps
+		// {
+		// 	float a = dot(n1_dg2_norm, n2_dg_norm);
+		// 	disp += a;
+		// }
+
+		// small cracks
+		if (in_small_cracks != 0.0) {
+			// vector a = vector(0.707, 0.707, 0);
+			// float ang = dot(n1_dg_norm, a);
+			// disp += abs(ang) < 0.1 ? 0.1 : 0.0;
+
+			// vertical
+			vector cmp = fea_transform("object", working_space, vector(1,0,0));
+			float ang = dot(n1_dg_norm, vector(0,1,0));
+			float amount = 1.0 - noise2.value;
+			float thresh = 0.1 * amount;
+			if (abs(ang) < thresh) {
+				// float p = fea_per(ang + thresh, 0.0, thresh * 2.0);
+				// disp += fea_corner_inflection(p, 0.5);
+				disp += ang * amount * in_small_cracks;
+			}
+			//  else if (abs(ang) > 1.0 - thresh) {
+			// 	disp -= ang * amount;
+			// }
+
+			// if (dot(n1_dg_norm, vector(0,1,0)) < 0.05) {
+			// 	disp += 1.0;
+			// }
+		}
+
+		// if (length(dg2) > 1.0) {
+		// 	out_base_color = color(1,0,0);
+		// }
+
+		// disp += (noise1.value * noise2.value) > 0.25 ? 1.0 : 0.0;
+		// disp += chunky + noise1.value;
+		// disp += noise1.value;
+
+		// disp *= chunky;
+		// if (disp > 0.2 * in_displace_amount) {
+		// 	disp *= chunk_strength;
+		// } else {
+		// 	disp *= -chunk_strength;
+		// }
 #endif
+
+		disp *= in_displace_strength;
+		out_displacement = disp;
+	}
+
+	{
+		vector n = normalize(up + in_normal_perturb * surface_gradient1);
+
+		// Back to tangent space (if working in another space).
+		n = fea_transform(working_space, "tangent", n);
+
+		// Normalize to expected rgb color map [-1,1] -> [0,1].
+	 	n = n * 0.5 + 0.5;
+		out_normal = n;
+	}
+
+
+	// Compute texture.
+	{
+		out_base_color = noise1.value;
+
+		// out_base_color = fea_wgt_compute_phase(in_phase_mode, in_phase_time, in_phase_input,
+		// 	in_phase_mul, in_phase_offset);
+
+		// point p = transform("object", "world", point(0));
+		// vector h = fea_hash1_iq(0, p);
+		// out_base_color = h[0];
+
+		// vector up = fea_transform("world", working_space, N);
+		// vector grad = noise1.gradient * 0.2;
+		// grad = fea_transform(uvw_data.coord_space, working_space, grad);
+		// vector grad_dir = normalize(grad);
+		// vector surf_grad = grad - up * dot(grad, up);
+
+		// // float a = dot(surf_grad, fea_xaxis);
+		// // if (abs(a) < 0.1) {
+		// // 	out_base_color = fea_red;
+		// // }
+
+		// // out_base_color = sin(coord[0] * noise2.value) + cos(coord[1] * noise2.value);
+		// out_base_color = length(sin(coord));
+		// if (length(sin(coord)) < 0.1) {
+		// 	out_base_color = fea_red;
+		// }
+		// out_base_color = length(0.1*cos(coord));
+
+		// point stable_p = fea_floor_to(coord, 1000);
+		// out_base_color = stable_p;
+
+		// point surf_coord = fea_transform(uvw_data.coord_space, "tangent", coord);
+		// out_base_color = surf_coord;
+		// out_base_color = length(sin(surf_coord));// * cos(surf_coord[1] * noise1.value);
+	}
 }

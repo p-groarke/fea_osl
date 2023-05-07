@@ -10,7 +10,7 @@
 
 shader TilingSimplex
 [[
-	string label = "Tiling Simplex",
+	string label = "Noise - Tiling Simplex",
 	string help	=
 		"<h3>Tiling Simplex</h3>"
 		"A spacially and temporally tiling simplex noise.<br>"
@@ -88,6 +88,10 @@ shader TilingSimplex
 	[[
 		string label = "Out (float)"
 	]],
+	output color out_normal = 0
+	[[
+		string label = "Normal (color)"
+	]],
 	output vector out_gradient = 0
 	[[
 		string label = "Gradient (vector)"
@@ -102,16 +106,20 @@ shader TilingSimplex
 	]]
 )
 {
-	point coord = FEA_WGT_GET_UVW;
+	fea_wgt_uvw_ret uvw_data = FEA_WGT_GET_UVW;
+	point coord = uvw_data.coord;
 	float phase = FEA_WGT_GET_PHASE;
 
 	fea_tsimplex_ret ret = fea_utsimplex_fbm(coord, in_fbm_octaves, in_lacunarity, in_tiling, phase);
-	ret.value = fea_lerp(ret.value, 0, 1, in_low_clamp, in_high_clamp);
+	ret.value = fea_lerp(ret.value, 0.0, 1.0, in_low_clamp, in_high_clamp);
 
 	out_col = mix(in_low_color, in_high_color, ret.value);
-
 	out_float = ret.value;
 	out_gradient = ret.gradient;
 	out_second_deriv = ret.dg;
 	out_second_deriv2 = ret.dg2;
+
+	// Normalize to expected rgb color map [-1,1] -> [0,1].
+	vector n = fea_tsimplex_normal(uvw_data.coord_space, ret);
+	out_normal = n * 0.5 + 0.5;
 }

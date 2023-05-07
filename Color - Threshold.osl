@@ -41,7 +41,7 @@ shader ColorThreshold
 		"<h3>Color Threshold</h3>"
 		"Filter or pick colors from input. Mask the rest."
 		,
-	string label = "Color Threshold"
+	string label = "Color - Threshold"
 ]]
 (
 	int in_mode = 0

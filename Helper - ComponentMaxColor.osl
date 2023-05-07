@@ -9,7 +9,7 @@ shader ComponentMaxColor
 		"<h3>Component Max (color)</h3>"
 		"Returns the highest value of RGB."
 		,
-	string label = "Component Max (color)"
+	string label = "Helper - Component Max (color)"
 ]]
 (
 	color in_color = 0

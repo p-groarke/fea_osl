@@ -5,6 +5,12 @@
 #define fea_osl
 
 #define FEA_FLT_MAX 3.402823e+38
+#define fea_red color(1,0,0)
+#define fea_green color(0,1,0)
+#define fea_blue color(0,0,1)
+#define fea_xaxis vector(1,0,0)
+#define fea_yaxis vector(0,1,0)
+#define fea_zaxis vector(0,0,1)
 
 /**
  * Conversions
@@ -103,9 +109,40 @@ float fea_lerp(float x, float a, float b) {
 
 // Given an input x and a crest point >= 0,
 // creates an inverted V-shaped graph where maximum = crest point.
-float fea_corner_inflection(float x, float crest_point) {
+float fea_peak(float x, float crest_point) {
 	float cp = crest_point < 0.0 ? 0.0 : crest_point;
 	return 1.0 - (abs(cp - x) / cp);
+}
+// Renamed.
+float fea_corner_inflection(float x, float crest_point) {
+	return fea_peak(x, crest_point);
+}
+
+// Creates a triangle sawtooth oscillating between [0,1].
+float fea_triangle_saw(float x) {
+	float ret = mod(x, 1.0);
+	ret = ret > 0.5 ? 1.0 - ret : ret;
+	return mod(ret, 0.5);
+}
+
+// Creates a triangle sawtooth oscillating between [0,1],
+// per component.
+vector fea_triangle_saw(vector x) {
+	vector ret = mod(x, 1.0);
+	ret[0] = ret[0] > 0.5 ? 1.0 - ret[0] : ret[0];
+	ret[1] = ret[1] > 0.5 ? 1.0 - ret[1] : ret[1];
+	ret[2] = ret[2] > 0.5 ? 1.0 - ret[2] : ret[2];
+	return mod(ret, 0.5);
+}
+
+// Gaussian bell curve.
+float fea_gauss(float x, float a, float b, float c) {
+	float me = pow(x - b, 2.0) / (2.0 * pow(c, 2.0));
+	return a * exp(-me);
+}
+// Gaussian bell curve between ~[0,1];
+float fea_gauss(float x) {
+	return fea_gauss(x, 1.0, 0.5, 0.1);
 }
 
 // With x in the range [from_a, from_b], lerp to the range [to_a, to_b].
@@ -291,18 +328,18 @@ float fea_length_squared(vector x) {
 
 // sin from 0 to 1
 float fea_usin(float x) {
-	return (sin(x) + 1.0) * 0.5;
+	return sin(x) * 0.5 + 0.5;
 }
 vector fea_usin(vector x) {
-	return (sin(x) + 1.0) * 0.5;
+	return sin(x) * 0.5 + 0.5;
 }
 
 // cos from 0 to 1
 float fea_ucos(float x) {
-	return (cos(x) + 1.0) * 0.5;
+	return cos(x) * 0.5 + 0.5;
 }
 vector fea_ucos(vector x) {
-	return (cos(x) + 1.0) * 0.5;
+	return cos(x) * 0.5 + 0.5;
 }
 
 int fea_near(float x, float target, float eps) {
@@ -328,6 +365,24 @@ float fea_atan2(float y, float x) {
 	return ret;
 }
 
+// Regardless, build TBN matrix.
+matrix fea_tbn() {
+	/* The normals and tangents are in world space. */
+	/* Note, we recompute the whole shebang to try and get */
+	/* a smooth TBN matrix. dPdu, dPdv are per vertex. */
+	vector n = N;
+	vector t = normalize(dPdu);
+	vector b = cross(n, t);
+	t = cross(b, n);
+
+	return matrix(
+		t[0], t[1], t[2], 0,
+		b[0], b[1], b[2], 0,
+		n[0], n[1], n[2], 0,
+		0, 0, 0, 1
+	);
+}
+
 // Transforms coordinate from one space to another.
 // Adds support to "tangent" space, in addition to OSL spaces.
 #define fea_imp_transform_gen(ptype) \
@@ -339,22 +394,7 @@ ptype fea_transform(string from_space, string to_space, ptype x) { \
 		return transform(from_space, to_space, x); \
 	} \
 \
-	/* Regardless, build TBN matrix. */ \
-	/* The normals and tangents are in world space. */ \
-	/* Note, we recompute the whole shebang to try and get */ \
-	/* a smooth TBN matrix. dPdu, dPdv are per vertex. */ \
-	normal n = N; \
-	vector t = normalize(dPdu); \
-	vector b = cross(n, t); \
-	t = cross(b, n); \
-\
-	matrix tbn = matrix( \
-		t[0], t[1], t[2], 0, \
-		b[0], b[1], b[2], 0, \
-		n[0], n[1], n[2], 0, \
-		0, 0, 0, 1 \
-	); \
-\
+	matrix tbn = fea_tbn(); \
 	ptype ret = x; \
 	if (from_space == "tangent") { \
 		ret = transform(tbn, ret); \

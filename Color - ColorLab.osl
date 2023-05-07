@@ -378,7 +378,7 @@ shader ColorLab
 		"<h3>Color Lab</h3>"
 		"A color scheme, palette and gradient playground, in Oklab or Okhcl color space."
 		,
-	string label = "Color Lab"
+	string label = "Color - Color Lab"
 ]]
 (
 	float in_val = 0

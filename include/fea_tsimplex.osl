@@ -273,7 +273,7 @@ fea_tsimplex_ret fea_tsimplex(point coord, vector period, float phase) {
 // Unsigned overload, return [0, 1].
 fea_tsimplex_ret fea_utsimplex(point coord, vector period, float phase) {
 	fea_tsimplex_ret ret = fea_tsimplex(coord, period, phase);
-	ret.value = (ret.value + 1.0) * 0.5;
+	ret.value = ret.value * 0.5 + 0.5;
 	return ret;
 }
 
@@ -300,6 +300,26 @@ fea_tsimplex_ret fea_utsimplex_fbm(point coord, int num_octaves, float lacunarit
 
 	fea_fractalize(num_octaves, lacunarity, fbm_callback, ret);
 	return ret;
+}
+
+// Compute surface normal using gradient, in tangent space.
+// The output is normalized as a typical color normal map would be.
+// Surface gradient [Mik10].
+// Derivative normal [Mik20]
+vector fea_tsimplex_normal(string input_space, vector gradient) {
+	vector up = fea_transform("world", "tangent", N);
+
+	// What *is* this magical value that normalizes our vector
+	// regardless of scale or eval space?
+	vector grad = gradient * 0.2;
+	grad = fea_transform(input_space, "tangent", grad);
+	vector surf_grad = grad - up * dot(grad, up);
+	return normalize(up + surf_grad);
+}
+
+// Overload for fea_tsimplex_ret.
+vector fea_tsimplex_normal(string input_space, fea_tsimplex_ret ret) {
+	return fea_tsimplex_normal(input_space, ret.gradient);
 }
 
 #endif // fea_tsimplex_osl

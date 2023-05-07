@@ -28,7 +28,7 @@ shader ColorScheme
 		"Various schemes to convert a float grayscale map to color.\n"
 		"Expects values between [0, 1], clamps input."
 		,
-	string label = "Color Scheme"
+	string label = "Color - Scheme"
 ]]
 (
 	float In = 0

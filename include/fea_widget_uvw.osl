@@ -69,8 +69,9 @@
 
 
 struct fea_wgt_uvw_ret {
-	point coord;
+	point coord; // the coordinate to process
 	string coord_space; // tangent, object, world, camera, etc
+	vector scale; // per axis scale, including global scale (multiplied)
 };
 
 // Given the input parameters, computes the coordinate to evalute.
@@ -133,6 +134,8 @@ fea_wgt_uvw_ret fea_wgt_compute_uvw(int mode, int map_channel, point uvw_input,
 	if (wrap) {
 		ret.coord -= floor(ret.coord);
 	}
+
+	ret.scale = vector(1) / axis_scale / scale;
 
 	return ret;
 }

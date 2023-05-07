@@ -9,7 +9,7 @@ shader ComponentMinColor
 		"<h3>Component Min (color)</h3>"
 		"Returns the lowest value of RGB."
 		,
-	string label = "Component Min (color)"
+	string label = "Helper - Component Min (color)"
 ]]
 (
 	color in_color = 0

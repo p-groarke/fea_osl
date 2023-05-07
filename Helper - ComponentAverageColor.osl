@@ -9,7 +9,7 @@ shader ComponentAverageColor
 		"<h3>Component Average (color)</h3>"
 		"Average RGB components and return float result."
 		,
-	string label = "Component Average (color)"
+	string label = "Helper - Component Average (color)"
 ]]
 (
 	color in_color = 0
