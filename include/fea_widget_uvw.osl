@@ -135,7 +135,7 @@ fea_wgt_uvw_ret fea_wgt_compute_uvw(int mode, int map_channel, point uvw_input,
 		ret.coord -= floor(ret.coord);
 	}
 
-	ret.scale = vector(1) / axis_scale / scale;
+	ret.scale = axis_scale * scale;
 
 	return ret;
 }

@@ -31,7 +31,8 @@ shader BoringRocks
 	float in_reshape = 2.0
 	[[
 		string label = "Reshape Strength",
-		string help = "Applies very large displacement to shape the object.",
+		string help = "Applies very large displacement to shape the object.<br>"
+			"WARNING : Unavailable when working in UVW space.",
 		float min = 0.0,
 	]],
 	float in_variance = 1.0
@@ -47,7 +48,7 @@ shader BoringRocks
 		float min = 0.0,
 		float max = 1.0,
 	]],
-	float in_ridges = 0.5
+	float in_ridges = 1.0
 	[[
 		string label = "Ridges Strength",
 		string help = "Creates directional ridges.",
@@ -65,6 +66,13 @@ shader BoringRocks
 	[[
 		string label = "Small Cracks Strength",
 		string help = "Amount of subtle cracking.",
+		float min = 0.0,
+		float max = 1.0,
+	]],
+	float in_plateaus = 1.0
+	[[
+		string label = "Plateau Strength",
+		string help = "Creates raised plateaus and deep 'cuts'.",
 		float min = 0.0,
 		float max = 1.0,
 	]],
@@ -100,8 +108,8 @@ shader BoringRocks
 	vector scale = uvw_data.scale;
 
 	point coord = uvw_data.coord;
-	fea_tsimplex_ret noise1 = fea_utsimplex_fbm(coord, 15, 1.7, vector(0), phase);
-	fea_tsimplex_ret noise2 = fea_utsimplex_fbm((coord + phase * 10.0) / 10.0, 3, 1.8, vector(0), (phase + 1.5) * 10.0);
+	fea_tsimplex_ret noise1 = fea_utsimplex_fbm(coord, 15, 1.8, vector(0), phase);
+	fea_tsimplex_ret noise2 = fea_utsimplex_fbm(coord / (scale * 0.5), 3, 1.8, vector(0), (phase + 1.5) * 10.0);
 
 	vector up = fea_transform("world", working_space, N);
 	vector gradient1 = noise1.gradient * 0.2;
@@ -217,56 +225,56 @@ shader BoringRocks
 	// Compute displacement.
 	{
 
-		// vector n1_dg = fea_transform(uvw_data.coord_space, working_space, noise1.dg * 0.2);
-		// vector n1_dg2 = fea_transform(uvw_data.coord_space, working_space, noise1.dg2 * 0.2);
-		// vector n2_dg = fea_transform(uvw_data.coord_space, working_space, noise2.dg * 0.2);
-		// vector n2_dg2 = fea_transform(uvw_data.coord_space, working_space, noise2.dg2 * 0.2);
-		// vector n1_dg_norm = normalize(n1_dg);
-		// vector n1_dg2_norm = normalize(n1_dg2);
-		// vector n2_dg_norm = normalize(n2_dg);
-		// vector n2_dg2_norm = normalize(n2_dg2);
-
-
 		float disp = (noise1.value + noise2.value) * 0.5;
-		// float disp = 0.0;
 
-		// Shape
-		if (in_reshape != 0.0) {
-			// float g1 = length(noise1.gradient * 0.2);
-			// float g2 = length(noise2.gradient * 0.2);
-			// float big_disp = g1 * g1 + g2 * g2;
-			// big_disp = fea_peak(big_disp, 0.5);
-			// big_disp = fea_peak(length(noise2.gradient * 0.2), 0.1) * 0.1;
-			// big_disp *= big_disp;
-			// disp -= big_disp * in_reshape;
+		// // Shape
+		// if (in_reshape != 0.0 && uvw_data.coord_space != "tangent") {
+		// 	// float g1 = length(noise1.gradient * 0.2);
+		// 	// float g2 = length(noise2.gradient * 0.2);
+		// 	// float big_disp = g1 * g1 + g2 * g2;
+		// 	// big_disp = fea_peak(big_disp, 0.5);
+		// 	// big_disp = fea_peak(length(noise2.gradient * 0.2), 0.1) * 0.1;
+		// 	// big_disp *= big_disp;
+		// 	// disp -= big_disp * in_reshape;
 
-			float m = length(surface_gradient2 / scale);
-			// m = sqrt(m * m);
-			// m = fea_triangle_saw(m);
-			// float c = clamp(m, 0, 1);
-			m -= fea_peak(m, 0.5) * 0.25;
-			disp -= m * in_reshape;
-		}
+		// 	float m = length(surface_gradient2 * scale);
+		// 	// m += noise2.value * length(scale);
+		// 	// m = sqrt(m * m);
+		// 	// m = fea_triangle_saw(m);
+		// 	// float c = clamp(m, 0, 1);
+		// 	m += abs(fea_peak(m, 0.5)) * (length(scale) * 0.1);
+		// 	// m = noise2.value * length(scale) * 10.0;
+		// 	disp -= m * in_reshape;
+		// }
 
-#if 0
+#if 1
+		vector n1_dg = fea_transform(uvw_data.coord_space, working_space, noise1.dg * 0.2);
+		vector n1_dg2 = fea_transform(uvw_data.coord_space, working_space, noise1.dg2 * 0.2);
+		vector n2_dg = fea_transform(uvw_data.coord_space, working_space, noise2.dg * 0.2);
+		vector n2_dg2 = fea_transform(uvw_data.coord_space, working_space, noise2.dg2 * 0.2);
+		vector n1_dg_norm = normalize(n1_dg);
+		vector n1_dg2_norm = normalize(n1_dg2);
+		vector n2_dg_norm = normalize(n2_dg);
+		vector n2_dg2_norm = normalize(n2_dg2);
+
+		// TODO : fix this considering new noise2 scale.
 		if (in_variance != 0.0) {
 			// float chunk_strength = 10.0;
 			// float chunky = smoothstep(0.5, 1.0, noise2.value) * chunk_strength;
 			// disp += chunky + noise1.value;
 
-			float chunky = linearstep(0.5, 1.0, disp) * in_variance;
+			float chunky = linearstep(0.5, 1.0, disp) * in_variance * 5.0;
 			disp *= chunky;
 			disp += noise1.value * 0.5;
+			// disp -= length(surface_gradient2);
 		}
 
 		// TODO
-			// float big_disp = length(noise1.gradient);
-			// big_disp = fea_triangle_saw(big_disp);
-			// disp -= big_disp * in_reshape;
-
-		// TODO plateaus
-			// float m = fea_gauss(length(surface_gradient1));
-			// disp -= m * in_reshape;
+		{
+			float big_disp = length(noise2.gradient);
+			big_disp = fea_triangle_saw(big_disp);
+			disp -= big_disp * in_reshape;
+		}
 
 		// Big cracks
 		if (in_large_cracks != 0.0) {
@@ -307,7 +315,6 @@ shader BoringRocks
 			// disp += abs(ang) < 0.1 ? 0.1 : 0.0;
 
 			// vertical
-			vector cmp = fea_transform("object", working_space, vector(1,0,0));
 			float ang = dot(n1_dg_norm, vector(0,1,0));
 			float amount = 1.0 - noise2.value;
 			float thresh = 0.1 * amount;
@@ -323,6 +330,13 @@ shader BoringRocks
 			// if (dot(n1_dg_norm, vector(0,1,0)) < 0.05) {
 			// 	disp += 1.0;
 			// }
+		}
+
+		// Plateaus
+		if (in_plateaus != 0.0) {
+			float m = fea_gauss(length(surface_gradient1));
+			m += fea_gauss(length(surface_gradient2));
+			disp -= m * in_plateaus;
 		}
 
 		// if (length(dg2) > 1.0) {
