@@ -24,8 +24,11 @@ struct fea_tsimplex_ret {
 	vector dg2; // 2nd order derivative (d2n/dxy, d2n/dyz, d2n/dxz).
 };
 
-fea_tsimplex_ret fea_make_tsimplex_ret() {
-	return fea_tsimplex_ret(0, 0, 0, 0);
+void fea_init(output fea_tsimplex_ret ret) {
+	ret.value = 0;
+	ret.gradient = 0;
+	ret.dg = 0;
+	ret.dg2 = 0;
 }
 
 fea_tsimplex_ret __operator__add__(fea_tsimplex_ret lhs, fea_tsimplex_ret rhs) {
@@ -37,23 +40,23 @@ fea_tsimplex_ret __operator__add__(fea_tsimplex_ret lhs, fea_tsimplex_ret rhs) {
 	);
 }
 
-fea_tsimplex_ret __operator__sub__(fea_tsimplex_ret lhs, fea_tsimplex_ret rhs) {
-	return fea_tsimplex_ret(
-		lhs.value - rhs.value,
-		lhs.gradient - rhs.gradient,
-		lhs.dg - rhs.dg,
-		lhs.dg2 - rhs.dg2
-	);
-}
+// fea_tsimplex_ret __operator__sub__(fea_tsimplex_ret lhs, fea_tsimplex_ret rhs) {
+// 	return fea_tsimplex_ret(
+// 		lhs.value - rhs.value,
+// 		lhs.gradient - rhs.gradient,
+// 		lhs.dg - rhs.dg,
+// 		lhs.dg2 - rhs.dg2
+// 	);
+// }
 
-fea_tsimplex_ret __operator__mul__(fea_tsimplex_ret lhs, fea_tsimplex_ret rhs) {
-	return fea_tsimplex_ret(
-		lhs.value * rhs.value,
-		lhs.gradient * rhs.gradient,
-		lhs.dg * rhs.dg,
-		lhs.dg2 * rhs.dg2
-	);
-}
+// fea_tsimplex_ret __operator__mul__(fea_tsimplex_ret lhs, fea_tsimplex_ret rhs) {
+// 	return fea_tsimplex_ret(
+// 		lhs.value * rhs.value,
+// 		lhs.gradient * rhs.gradient,
+// 		lhs.dg * rhs.dg,
+// 		lhs.dg2 * rhs.dg2
+// 	);
+// }
 fea_tsimplex_ret __operator__mul__(fea_tsimplex_ret lhs, float rhs) {
 	return fea_tsimplex_ret(
 		lhs.value * rhs,
@@ -63,14 +66,14 @@ fea_tsimplex_ret __operator__mul__(fea_tsimplex_ret lhs, float rhs) {
 	);
 }
 
-fea_tsimplex_ret __operator__div__(fea_tsimplex_ret lhs, fea_tsimplex_ret rhs) {
-	return fea_tsimplex_ret(
-		lhs.value / rhs.value,
-		lhs.gradient / rhs.gradient,
-		lhs.dg / rhs.dg,
-		lhs.dg2 / rhs.dg2
-	);
-}
+// fea_tsimplex_ret __operator__div__(fea_tsimplex_ret lhs, fea_tsimplex_ret rhs) {
+// 	return fea_tsimplex_ret(
+// 		lhs.value / rhs.value,
+// 		lhs.gradient / rhs.gradient,
+// 		lhs.dg / rhs.dg,
+// 		lhs.dg2 / rhs.dg2
+// 	);
+// }
 fea_tsimplex_ret __operator__div__(fea_tsimplex_ret lhs, float rhs) {
 	return fea_tsimplex_ret(
 		lhs.value / rhs,
@@ -110,19 +113,22 @@ fea_tsimplex_ret fea_tsimplex(point coord, vector period, float phase) {
 	}
 
 	// Return value, uses struct to support fractalize macro.
-	fea_tsimplex_ret ret = fea_make_tsimplex_ret();
+	fea_tsimplex_ret ret;
+	fea_init(ret);
 
 	// Transformation matrices for the axis-aligned simplex grid
-	matrix M = make_matrix_from_cm(
-		0.0, 1.0, 1.0,
-		1.0, 0.0, 1.0,
-		1.0, 1.0, 0.0
+	matrix M = matrix(
+		0.0, 1.0, 1.0, 0.0,
+		1.0, 0.0, 1.0, 0.0,
+		1.0, 1.0, 0.0, 0.0,
+		0.0, 0.0, 0.0, 1.0
 	);
 
-	matrix Mi = make_matrix_from_cm(
-		-0.5, 0.5, 0.5,
-		0.5,-0.5, 0.5,
-		0.5, 0.5,-0.5
+	matrix Mi = matrix(
+		-0.5, 0.5, 0.5, 0.0,
+		0.5, -0.5, 0.5, 0.0,
+		0.5, 0.5, -0.5, 0.0,
+		0.0, 0.0, 0.0, 1.0
 	);
 
 	float alpha = fea_per_to_rad(phase);
@@ -144,8 +150,8 @@ fea_tsimplex_ret fea_tsimplex(point coord, vector period, float phase) {
 	vector l_ = 1.0 - g_; // complement is "greater-or-equal"
 	vector g = make_vector(l_.z, fea_xy(g_));
 	vector l = make_vector(fea_xy(l_), g_.z);
-	vector o1 = min( g, l );
-	vector o2 = max( g, l );
+	vector o1 = min(g, l);
+	vector o2 = max(g, l);
 
 	// Enumerate the remaining simplex corners
 	point i1 = i0 + o1;
@@ -204,7 +210,7 @@ fea_tsimplex_ret fea_tsimplex(point coord, vector period, float phase) {
 
 	vector4 Ct = cos(theta);
 	vector4 St = sin(theta);
-	vector4 sz_prime = sqrt( 1.0 - sz*sz ); // s is a point on a unit fib-sphere
+	vector4 sz_prime = sqrt(1.0 - sz * sz); // s is a point on a unit fib-sphere
 
 	vector4 gx, gy, gz;
 
@@ -268,58 +274,6 @@ fea_tsimplex_ret fea_tsimplex(point coord, vector period, float phase) {
 	// Scale the return value to fit nicely into the range [-1,1]
 	ret.value = 39.5 * n;
 	return ret;
-}
-
-// Unsigned overload, return [0, 1].
-fea_tsimplex_ret fea_utsimplex(point coord, vector period, float phase) {
-	fea_tsimplex_ret ret = fea_tsimplex(coord, period, phase);
-	ret.value = ret.value * 0.5 + 0.5;
-	return ret;
-}
-
-
-// Tiling simplex FBM.
-fea_tsimplex_ret fea_tsimplex_fbm(point coord, int num_octaves, float lacunarity, vector period, float phase) {
-	fea_tsimplex_ret ret = fea_make_tsimplex_ret();
-
-	fea_tsimplex_ret fbm_callback(float freq) {
-		return fea_tsimplex(coord * freq + freq * 0.1, period * freq, phase);
-	}
-
-	fea_fractalize(num_octaves, lacunarity, fbm_callback, ret);
-	return ret;
-}
-
-// Unsigned tiling simplex FBM.
-fea_tsimplex_ret fea_utsimplex_fbm(point coord, int num_octaves, float lacunarity, vector period, float phase) {
-	fea_tsimplex_ret ret = fea_make_tsimplex_ret();
-
-	fea_tsimplex_ret fbm_callback(float freq) {
-		return fea_utsimplex(coord * freq + freq * 0.1, period * freq, phase);
-	}
-
-	fea_fractalize(num_octaves, lacunarity, fbm_callback, ret);
-	return ret;
-}
-
-// Compute surface normal using gradient, in tangent space.
-// The output is normalized as a typical color normal map would be.
-// Surface gradient [Mik10].
-// Derivative normal [Mik20]
-vector fea_tsimplex_normal(string input_space, vector gradient) {
-	vector up = fea_transform("world", "tangent", N);
-
-	// What *is* this magical value that normalizes our vector
-	// regardless of scale or eval space?
-	vector grad = gradient * 0.2;
-	grad = fea_transform(input_space, "tangent", grad);
-	vector surf_grad = grad - up * dot(grad, up);
-	return normalize(up + surf_grad);
-}
-
-// Overload for fea_tsimplex_ret.
-vector fea_tsimplex_normal(string input_space, fea_tsimplex_ret ret) {
-	return fea_tsimplex_normal(input_space, ret.gradient);
 }
 
 #endif // fea_tsimplex_osl

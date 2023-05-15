@@ -326,6 +326,14 @@ float fea_length_squared(vector x) {
 	return dot(x, x);
 }
 
+// Returns fractional part of x.
+float fract(float x) {
+	return x - floor(x);
+}
+vector fract(vector x) {
+	return x - floor(x);
+}
+
 // sin from 0 to 1
 float fea_usin(float x) {
 	return sin(x) * 0.5 + 0.5;

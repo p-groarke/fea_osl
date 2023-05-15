@@ -14,8 +14,8 @@
 //
 // Expected func signature :
 // float func(vector);
-#define fea_gradient_2d(coord, eps, func, out_vector) \
-	out_vector = vector( \
+#define fea_gradient_2d(coord, eps, func) \
+	vector( \
 		func(coord + fea_imp_xe(eps)) - func(coord - fea_imp_xe(eps)), \
 		func(coord + fea_imp_ye(eps)) - func(coord - fea_imp_ye(eps)), \
 		0.0 \
@@ -26,8 +26,8 @@
 //
 // Expected func signature :
 // float func(vector);
-#define fea_gradient_3d(coord, eps, func, out_vector) \
-	out_vector = vector( \
+#define fea_gradient_3d(coord, eps, func) \
+	vector( \
 		func(coord + fea_imp_xe(eps)) - func(coord - fea_imp_xe(eps)), \
 		func(coord + fea_imp_ye(eps)) - func(coord - fea_imp_ye(eps)), \
 		func(coord + fea_imp_ze(eps)) - func(coord - fea_imp_ze(eps)) \
@@ -40,12 +40,8 @@
 //
 // Expected func signature :
 // float func(vector);
-#define fea_distance_to_func_2d(coord, eps, func, out_float) \
-{ \
-	vector grad = 0; \
-	fea_gradient_2d(coord, eps, func, grad); \
-	out_float = abs(func(coord)) / length(grad) \
-}
+#define fea_distance_to_func_2d(coord, eps, func) \
+	 func(coord) / length(fea_gradient_2d(coord, eps, func))
 
 // Computes the distance from point x to your function.
 // That is : abs(f(x)) / abs(gradient(f(x)))
@@ -53,12 +49,8 @@
 //
 // Expected func signature :
 // float func(vector);
-#define fea_distance_to_func_3d(coord, eps, func, out_float) \
-{ \
-	vector grad = 0; \
-	fea_gradient_3d(coord, eps, func, grad); \
-	out_float = abs(func(coord)) / length(grad) \
-}
+#define fea_distance_to_func_3d(coord, eps, func) \
+	func(coord) / length(fea_gradient_3d(coord, eps, func))
 
 
 // Returns a matrix filled with all neighboring values
