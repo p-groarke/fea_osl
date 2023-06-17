@@ -9,11 +9,22 @@
 #define fea_imp_ze(eps) vector(0.0, 0.0, eps)
 
 // A simpler less expensive numerical gradient.
+//
+// Expected func signature :
+// float func(point);
+#define fea_gradient_1d(coord, eps, func) \
+	vector( \
+		func(coord + fea_imp_xe(eps)) - func(coord - fea_imp_xe(eps)), \
+		0.0, \
+		0.0 \
+	) / (2.0 * eps)
+
+// A simpler less expensive numerical gradient.
 // Basically Robert's Cross.
 // Assigns the results to out_vector
 //
 // Expected func signature :
-// float func(vector);
+// float func(point);
 #define fea_gradient_2d(coord, eps, func) \
 	vector( \
 		func(coord + fea_imp_xe(eps)) - func(coord - fea_imp_xe(eps)), \
@@ -25,7 +36,7 @@
 // Basically Robert's Cross expanded in z.
 //
 // Expected func signature :
-// float func(vector);
+// float func(point);
 #define fea_gradient_3d(coord, eps, func) \
 	vector( \
 		func(coord + fea_imp_xe(eps)) - func(coord - fea_imp_xe(eps)), \
@@ -34,23 +45,44 @@
 	) / (2.0 * eps)
 
 
-// Computes the distance from point x to your function.
-// That is : abs(f(x)) / abs(gradient(f(x)))
-// https://iquilezles.org/articles/distance/
-//
-// Expected func signature :
-// float func(vector);
-#define fea_distance_to_func_2d(coord, eps, func) \
-	 func(coord) / length(fea_gradient_2d(coord, eps, func))
+// Used internally by distance_to_func, doesn't divide by 0.
+float fea_imp_distance_to_func(float d, vector grad, float eps) {
+	float l = length(grad);
+	if (l < eps) {
+		return 0.0;
+	}
+	return d / l;
+}
 
 // Computes the distance from point x to your function.
 // That is : abs(f(x)) / abs(gradient(f(x)))
 // https://iquilezles.org/articles/distance/
 //
 // Expected func signature :
-// float func(vector);
+// float func(point);
+#define fea_distance_to_func_1d(coord, eps, func) \
+	fea_imp_distance_to_func(func(coord), fea_gradient_1d(coord, eps, func), eps)
+	//  func(coord) / length(fea_gradient_2d(coord, eps, func))
+
+// Computes the distance from point x to your function.
+// That is : abs(f(x)) / abs(gradient(f(x)))
+// https://iquilezles.org/articles/distance/
+//
+// Expected func signature :
+// float func(point);
+#define fea_distance_to_func_2d(coord, eps, func) \
+	fea_imp_distance_to_func(func(coord), fea_gradient_2d(coord, eps, func), eps)
+	//  func(coord) / length(fea_gradient_2d(coord, eps, func))
+
+// Computes the distance from point x to your function.
+// That is : abs(f(x)) / abs(gradient(f(x)))
+// https://iquilezles.org/articles/distance/
+//
+// Expected func signature :
+// float func(point);
 #define fea_distance_to_func_3d(coord, eps, func) \
-	func(coord) / length(fea_gradient_3d(coord, eps, func))
+	fea_imp_distance_to_func(func(coord), fea_gradient_3d(coord, eps, func), eps)
+	// func(coord) / length(fea_gradient_3d(coord, eps, func))
 
 
 // Returns a matrix filled with all neighboring values
@@ -289,5 +321,20 @@ float fea_outline_2d(matrix m) {
 // 		out_value /= fea_m_norm; \
 // 	} \
 // }
+
+
+// Deprecated
+// Clouds (aka Fractal Brownian Motion).
+float fea_fbm(int iterations, vector coord, float phase) {
+	float ret = 0.0;
+
+	for (int i = 1; i < iterations + 1; ++i) {
+		float size = i / float(iterations);
+		ret += noise("usimplex", coord / size, phase + size) * size;
+	}
+
+	ret /= float(iterations);
+	return ret;
+}
 
 #endif // fea_functional_osl

@@ -6,10 +6,10 @@
 shader ComponentMinVector
 [[
 	string help  =
-		"<h3>Component Min (vector)</h3>"
+		"<h3>Component Min</h3>"
 		"Returns the lowest value of XYZ."
 		,
-	string label = "Helper - Component Min (vector)"
+	string label = "Util - Component Min"
 ]]
 (
 	color in_vec = 0

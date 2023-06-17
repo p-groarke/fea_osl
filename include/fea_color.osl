@@ -3,7 +3,8 @@
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_color_osl
 #define fea_color_osl
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_conversions.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_math.osl"
 
 // fea_blend enum ui options.
 #define fea_blend_opts \

@@ -114,7 +114,7 @@ fea_wgt_uvw_ret fea_wgt_compute_uvw(int mode, int map_channel, point uvw_input,
 
 		// Fix imprecision / undefined access in w component.
 		// Much sadness was had.
-		float eps = 0.0000001;
+		float eps = 1000000;
 		ret.coord[2] = floor(ret.coord[2] * eps) / eps;
 
 	} else if (mode == 1) {

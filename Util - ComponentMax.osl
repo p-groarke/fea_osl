@@ -6,10 +6,10 @@
 shader ComponentMaxVector
 [[
 	string help  =
-		"<h3>Component Max (vector)</h3>"
+		"<h3>Component Max</h3>"
 		"Returns the highest value of XYZ."
 		,
-	string label = "Helper - Component Max (vector)"
+	string label = "Util - Component Max"
 ]]
 (
 	color in_vec = 0

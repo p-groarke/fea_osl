@@ -1,0 +1,176 @@
+// fea_interpolate osl libraries by Philippe Groarke
+// Copyright 2023 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_interpolate_osl
+#define fea_interpolate_osl
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_math.osl"
+
+// Given x in the range [a, b], converts to percentage.
+//
+// That is, if x == a, returns 0, if x == b, return 1.
+float fea_per(float x, float a, float b) {
+	return (x - a) / (b - a);
+}
+
+// Given x in the range [a, b], returns the inverse percentage.
+//
+// That is, if x == a, returns 1, if x == b, return 0.
+float fea_per_inv(float x, float a, float b) {
+	return (b - x) / (b - a);
+}
+
+// Linearly interpolate x between a and b.
+// x is clamped to [0, 1].
+float fea_lerp(float x, float a, float b) {
+	return a + x * (b - a);
+	// return (1.0 - x) * a + x * b;
+}
+// With x in the range [from_a, from_b], lerp to the range [to_a, to_b].
+// Aka, lerp where x is not between 0, 1.
+float fea_lerp(float x, float from_a, float from_b, float to_a, float to_b) {
+	// Remap x into percentage.
+	float per = fea_per(x, from_a, from_b);
+
+	// Typical lerp.
+	return fea_lerp(x, to_a, to_b);
+}
+
+
+// Staircase interpolate x between a and b, according to steps.
+float fea_staircase_interp(float x, int in_steps, float a, float b) {
+	float steps = float(in_steps);
+	float per = round(x * steps) / steps;
+	return fea_lerp(per, a, b);
+}
+
+// With x in the range [from_a, from_b], staircase interpolate
+// to the range [to_a, to_b].
+// Aka, staircase_interp where x is not between 0, 1.
+// x is clamped to [from_a, from_b].
+float fea_staircase_interp(float x, int in_steps, float from_a, float from_b,
+		float to_a, float to_b) {
+	// Remap x into percentage.
+	float per = fea_per(x, from_a, from_b);
+	// Typical interpolation.
+	return fea_staircase_interp(per, in_steps, to_a, to_b);
+}
+
+// Interpolates x, according to the k control, between a and b.
+//
+// x is clamped to [0, 1]
+// k > 0, exponential
+// k == 0, linear
+// k < 0, logarithmic
+//
+// https://www.desmos.com/calculator/og836nvwmx
+float fea_interp(float x, float k, float a, float b) {
+	if (k == 0.0) {
+		return fea_lerp(x, a, b);
+	}
+
+	float per = (exp(k * x) - 1.0) / (exp(k) - 1.0);
+	return fea_lerp(per, a, b);
+}
+
+// With x in the range [from_a, from_b],
+// interpolate to the output range [to_a, to_b].
+// Using k to control the curve.
+//
+// x is clamped to [from_a, from_b].
+// k > 0, exponential
+// k == 0, linear
+// k < 0, logarithmic
+//
+// https://www.desmos.com/calculator/og836nvwmx
+float fea_interp(float x, float k, float from_a, float from_b, float to_a, float to_b) {
+	// Remap x into percentage.
+	float per = fea_per(x, from_a, from_b);
+
+	// Typical interp.
+	return fea_interp(per, k, to_a, to_b);
+}
+
+// Original func, legacy.
+// Play with k,
+// https://www.desmos.com/calculator/og836nvwmx
+// k > 0, exponential
+// k == 0, linear
+// k < 0, logarithmic
+float fea_interp(float k, float percent) {
+	float ret = 0.0;
+	float epsilon = 0.0001;
+	if (fabs(k) < epsilon) {
+		// Actual k = 0 == 0 always. Just do linear interp.
+		ret = percent;
+	} else {
+		ret = (exp(k * percent) - 1.0) / (exp(k) - 1.0);
+	}
+	return ret;
+}
+
+// Given x, an alpha constant (0.5 == centripetal), and 4 points.
+// Computes the catmull-rom interpolation of the point at x.
+//
+// https://en.wikipedia.org/wiki/Centripetal_Catmull%E2%80%93Rom_spline
+point fea_catmull_rom(float x, float alpha,
+		point p0, point p1, point p2, point p3) {
+
+	float get_t(float y, float alpha, point p0, point p1) {
+		vector dir = p1 - p0;
+		float a = dot(dir, dir); // sqr mag
+		float b = pow(a, alpha * 0.5);
+		return b + y;
+	}
+
+	// Get the tees.
+	// This effectively remaps (or transforms) the knot positions
+	// into a not-necessarily-uniform space.
+	// Which gives more or less importance to the curves before
+	// and after our desired segment.
+	float t0 = 0.0;
+	float t1 = get_t(t0, alpha, p0, p1);
+	float t2 = get_t(t1, alpha, p1, p2);
+	float t3 = get_t(t2, alpha, p2, p3);
+	float t = fea_lerp(x, t1, t2);
+
+	// Weigh the points given t's percentage (or inverse percentage)
+	// along the ranges.
+	point a1 = fea_per_inv(t, t0, t1) * p0 + fea_per(t, t0, t1) * p1;
+	point a2 = fea_per_inv(t, t1, t2) * p1 + fea_per(t, t1, t2) * p2;
+	point a3 = fea_per_inv(t, t2, t3) * p2 + fea_per(t, t2, t3) * p3;
+	point b1 = fea_per_inv(t, t0, t2) * a1 + fea_per(t, t0, t2) * a2;
+	point b2 = fea_per_inv(t, t1, t3) * a2 + fea_per(t, t1, t3) * a3;
+	point c  = fea_per_inv(t, t1, t2) * b1 + fea_per(t, t1, t2) * b2;
+	return c;
+}
+
+// Same as other catmull rom interpolation, but for floats.
+float fea_catmull_rom(float x, float alpha,
+		float p0, float p1, float p2, float p3) {
+
+	float get_t(float y, float alpha, float p0, float p1) {
+		float dir = p1 - p0;
+		float a = dir * dir; // sqr mag
+		float b = pow(a, alpha * 0.5);
+		return b + y;
+	}
+
+	// Get the tees.
+	float t0 = 0.0;
+	float t1 = get_t(t0, alpha, p0, p1);
+	float t2 = get_t(t1, alpha, p1, p2);
+	float t3 = get_t(t2, alpha, p2, p3);
+	float t = fea_lerp(x, t1, t2);
+
+	// Weigh the points given t's percentage (or inverse percentage)
+	// along the ranges.
+	float a1 = fea_per_inv(t, t0, t1) * p0 + fea_per(t, t0, t1) * p1;
+	float a2 = fea_per_inv(t, t1, t2) * p1 + fea_per(t, t1, t2) * p2;
+	float a3 = fea_per_inv(t, t2, t3) * p2 + fea_per(t, t2, t3) * p3;
+	float b1 = fea_per_inv(t, t0, t2) * a1 + fea_per(t, t0, t2) * a2;
+	float b2 = fea_per_inv(t, t1, t3) * a2 + fea_per(t, t1, t3) * a3;
+	float c  = fea_per_inv(t, t1, t2) * b1 + fea_per(t, t1, t2) * b2;
+	return c;
+}
+
+#endif

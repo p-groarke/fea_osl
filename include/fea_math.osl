@@ -1,0 +1,135 @@
+// fea_math osl libraries by Philippe Groarke
+// Copyright 2023 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_math_osl
+#define fea_math_osl
+
+// Returns squared magnitude.
+float fea_length_squared(vector x) {
+	return dot(x, x);
+}
+
+// Average vector components.
+float fea_average(vector in) {
+	return (in[0] + in[1] + in[2]) / 3.0;
+}
+
+// Returns fractional part of x.
+float fract(float x) {
+	return x - floor(x);
+}
+vector fract(vector x) {
+	return vector(
+		fract(x[0]),
+		fract(x[1]),
+		fract(x[2])
+	);
+}
+
+// sin from 0 to 1
+float fea_usin(float x) {
+	return sin(x) * 0.5 + 0.5;
+}
+vector fea_usin(vector x) {
+	return sin(x) * 0.5 + 0.5;
+}
+
+// cos from 0 to 1
+float fea_ucos(float x) {
+	return cos(x) * 0.5 + 0.5;
+}
+vector fea_ucos(vector x) {
+	return cos(x) * 0.5 + 0.5;
+}
+
+// Returns true if dist(x, target) < eps.
+int fea_near(float x, float target, float eps) {
+	return abs(target - x) < eps;
+}
+int fea_near(vector x, vector target, float eps) {
+	return length(target - x) < eps;
+}
+
+// For max viewport, :/
+// TODO : Find an OK implementation, without bit fiddling.
+float fea_cbrt(float x) {
+	return pow(abs(x), 0.33333333333333333);
+}
+
+// atan2 compatible in both viewport and renderer.
+// Note : atan2(0/0) is undefined in viewport, fix it.
+float fea_atan2(float y, float x) {
+	float ret = 0.0;
+	if (x != 0.0 && y != 0.0) {
+		ret = atan2(y, x);
+	}
+	return ret;
+}
+
+// Returns the distance of x to segment created by p1 -> p2.
+float fea_distance_to_segment(point x, point p1, point p2) {
+	vector seg = p2 - p1;
+	vector seg_dir = normalize(seg);
+	vector to_p1 = x - p1;
+
+	// Note, dot(normalized, unnormalized) == length of projection on
+	// unnormalized.
+	float t = dot(seg_dir, to_p1);
+
+	if (t < 0.0) {
+		// Closest to p1.
+		return length(to_p1);
+	}
+	if (t > length(seg)) {
+		// Closest to p2.
+		return length(x - p2);
+	}
+
+	// Equivalent of creating an orthogonal vector to seg,
+	// reaching x.
+	return length(to_p1 - t * seg_dir);
+}
+
+/**
+ * Interesting functions, experiments.
+ */
+
+// Given an input x and a crest point >= 0,
+// creates an inverted V-shaped graph where maximum = crest point.
+float fea_peak(float x, float crest_point) {
+	float cp = crest_point < 0.0 ? 0.0 : crest_point;
+	return 1.0 - (abs(cp - x) / cp);
+}
+// Renamed.
+float fea_corner_inflection(float x, float crest_point) {
+	return fea_peak(x, crest_point);
+}
+
+// Creates a triangle sawtooth oscillating between [0,1].
+float fea_triangle_saw(float x) {
+	float ret = mod(x, 1.0);
+	ret = ret > 0.5 ? 1.0 - ret : ret;
+	return mod(ret, 0.5);
+}
+
+// Creates a triangle sawtooth oscillating between [0,1],
+// per component.
+vector fea_triangle_saw(vector x) {
+	return vector(
+		fea_triangle_saw(x[0]),
+		fea_triangle_saw(x[1]),
+		fea_triangle_saw(x[2])
+	);
+}
+
+// Gaussian bell curve.
+float fea_gauss(float x, float a, float b, float c) {
+	float me = pow(x - b, 2.0) / (2.0 * pow(c, 2.0));
+	return a * exp(-me);
+}
+// Gaussian bell curve between ~[0,1];
+float fea_gauss(float x) {
+	return fea_gauss(x, 1.0, 0.5, 0.1);
+}
+
+#endif

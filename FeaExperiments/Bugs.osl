@@ -1,0 +1,100 @@
+int fea_max_axis1(vector x) {
+	int ret = 0;
+	for (int i = 1; i < 3; ++i) {
+		if (x[i] > x[ret]) {
+			ret = i;
+		}
+	}
+	return ret;
+}
+
+int fea_max_axis2(vector x) {
+	int ret = 0;
+	if (x[1] > x[ret]) {
+		ret = 1;
+	}
+	if (x[2] > x[ret]) {
+		ret = 2;
+	}
+	return ret;
+}
+
+int fea_max_axis3(vector x) {
+	if (x[0] > x[1] && x[0] > x[2]) {
+		return 0;
+	}
+	if (x[1] > x[0] && x[1] > x[2]) {
+		return 1;
+	}
+	return 2;
+}
+
+#define fea_max_axis4(x) \
+	(x[0] > x[1] && x[0] > x[2]) ? 0 : \
+	((x[1] > x[0] && x[1] > x[2]) ? 1 : 2)
+
+int fea_max_axis5(vector x) {
+	int ret[3] = {0,1,2};
+
+	if (x[0] > x[1] && x[0] > x[2]) {
+		return ret[0];
+	}
+	if (x[1] > x[0] && x[1] > x[2]) {
+		return ret[1];
+	}
+	return ret[2];
+}
+
+// REPRO
+// Make sphere, connect physical material (or arnold standard surface).
+// Connect this node to color.
+// Make sure your viewport uses advanced material
+// (NOT the same as advanced MODE).
+//
+//
+// None of these functions work in viewport. They should.
+// Try them all.
+#define test_num 2
+
+
+shader Bugs
+[[
+	string help  = "Bugs",
+	string label = "Bugs"
+]]
+(
+	output color Out = 0
+)
+{
+	Out = color(0.8, 0.8, 0.9);
+	vector n = N;
+	vector abs_n = abs(n);
+
+#if test_num == 1
+	int nidx = fea_max_axis1(abs_n);
+#elif test_num == 2
+	int nidx = fea_max_axis2(abs_n);
+#elif test_num == 3
+	int nidx = fea_max_axis3(abs_n);
+#elif test_num == 4
+	int nidx = fea_max_axis4(abs_n);
+#elif test_num == 5
+	int nidx = fea_max_axis5(abs_n);
+#elif test_num == 6
+	int nidx = 0;
+	if (abs_n[1] > abs_n[0] && abs_n[1] > abs_n[2]) {
+		nidx = 1;
+	}
+	if (abs_n[2] > abs_n[0] && abs_n[2] > abs_n[1]) {
+		nidx = 2;
+	}
+#elif test_num == 7
+	int nidx = 0;
+#endif
+
+	vector new_n = vector(0);
+	new_n[nidx] = sign(n[nidx]);
+
+	// Assumes we are indexing at -1 or something else out of range.
+
+}

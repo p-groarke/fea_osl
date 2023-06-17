@@ -1,0 +1,18 @@
+// fea_constants osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_constants_osl
+#define fea_constants_osl
+
+#define FEA_FLT_MAX 3.402823e+38
+#define FEA_FLT_MIN -3.40282e+38
+#define FEA_NORM2 0.70710678118654752
+#define FEA_NORM3 0.57735026918962576
+#define FEA_RED color(1,0,0)
+#define FEA_GREEN color(0,1,0)
+#define FEA_BLUE color(0,0,1)
+#define FEA_XAXIS vector(1,0,0)
+#define FEA_YAXIS vector(0,1,0)
+#define FEA_ZAXIS vector(0,0,1)
+
+#endif // fea_constants_osl

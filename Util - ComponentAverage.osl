@@ -6,10 +6,10 @@
 shader ComponentAverageColor
 [[
 	string help  =
-		"<h3>Component Average (vector)</h3>"
+		"<h3>Component Average</h3>"
 		"Average XYZ components and return float result."
 		,
-	string label = "Helper - Component Average (vector)"
+	string label = "Util - Component Average"
 ]]
 (
 	color in_vec = 0

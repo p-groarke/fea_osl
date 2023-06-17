@@ -7,6 +7,7 @@
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_phase.osl"
 #include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
+#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_shape.osl"
 
 shader Playground
 [[
@@ -23,48 +24,264 @@ shader Playground
 	output vector Normal = 0,
 	output vector Normal2 = 0,
 	output float Displace = 0,
+	output vector DisplaceVec = 0,
 	output vector Tangent = 0
 )
 {
 
 #if 1
-	fea_wgt_uvw_ret uvw_data = FEA_WGT_GET_UVW;
-	float phase = FEA_WGT_GET_PHASE;
+	Out = color(0.8, 0.8, 0.9);
 
-	point coord = uvw_data.coord;
-	fea_tsimplex_ret ret = fea_utsimplex_fbm(coord, 20, 1.7, vector(0), phase);
-	Out = ret.value;
+// level set backup
+// {
+// 	vector n = transform("object", N);
+// 	point p1 = transform("object", P);
+// 	point p2 = n + p1;
+// 	point grid = fea_round_to(p1, 1.0);
+// 	vector ts = (grid - p1) / n;
+// 	int n_idx = fea_max_axis_idx(n);
+// 	Displace = ts[n_idx];
+// }
 
-	string working_space = "tangent";
-	vector up = fea_transform("world", working_space, N);
-	vector grad = fea_transform(uvw_data.coord_space, working_space, ret.gradient);
+// backup
+// {
+// 	vector n = transform("object", N);
+// 	point p1 = transform("object", P);
+// 	float grid_scale = 0.1;
+// 	point grid = fea_round_to(p1, grid_scale);
+// 	vector t = (grid - p1) / n;
+// 	float tmin = fea_min_component(abs(t));
+// 	Displace = tmin;
+// 	return;
+// }
 
-	{
-		// Surface gradient [Mik10].
-		grad = normalize(grad);
-		vector surf_grad = grad - up * dot(grad, up);
-
-		// Derivative normal [Mik20]
-		vector n = normalize(up + 0.25 * surf_grad);
-		n = fea_transform(working_space, "tangent", n);
- 		n = n * 0.5 + 0.5;
-		Normal2 = n;
+int fea_max_axis2(vector x) {
+	// Don't use for loop because OSL lol.
+	int ret = 0;
+	if (x[1] > x[ret]) {
+		ret = 1;
 	}
+	if (x[2] > x[ret]) {
+		ret = 2;
+	}
+	return ret;
+}
 
-	Displace = ret.value * 1.0;
-	// {
-	// 	vector fwd = normalize(grad);
-	// 	vector side = normalize(cross(fwd, up));
-	// 	vector n = normalize(cross(side, fwd));
-	// 	n = fea_transform(working_space, "tangent", n);
+{
+	vector n = normalize(N);
+	int nidx = fea_max_axis2(abs(n));
 
-	// 	// Rectify for expected texture range [0,1];
- 	// 	n = n * 0.5 + 0.5;
-	// 	Normal = n;
-	// 	// return;
-	// }
+	vector new_n = vector(0);
+	new_n[nidx] = sign(n[nidx]);
 
-#else
+	// new_n = fea_transform("tangent", new_n);
+	// Normal = new_n * 0.5 + 0.5;
+
+	// Displace = 1.0 - abs(n[nidx]);
+
+	// Out = 1;
+	return;
+}
+
+
+// {
+// 	void make_grids(point p, vector n, float scale,
+// 			output point out_grids[3],
+// 			output vector out_ts[3],
+// 			output int out_idxes[3]) {
+// 		point gs[3] = {
+// 			fea_expand_to(p, scale),
+// 			fea_round_to(p, scale),
+// 			fea_trunc_to(p, scale)
+// 		};
+
+// 		vector ts[3] = {
+// 			(gs[0] - p) / n,
+// 			(gs[1] - p) / n,
+// 			(gs[2] - p) / n
+// 		};
+
+// 		int idxes[3] = {
+// 			fea_min_axis(abs(ts[0])),
+// 			fea_min_axis(abs(ts[1])),
+// 			fea_min_axis(abs(ts[2]))
+// 		};
+
+// 		out_grids = gs;
+// 		out_ts = ts;
+// 		out_idxes = idxes;
+// 	}
+
+// 	vector n = transform("object", N);
+// 	int nidx = fea_max_axis(abs(n));
+
+// 	point p1 = transform("object", P);
+// 	float grid_scale = 0.2;
+
+// 	int mgrid = 1;
+
+// 	point grids[3];
+// 	vector ts[3];
+// 	int idxes[3];
+// 	make_grids(p1, n, grid_scale, grids, ts, idxes);
+
+// 	point grid = grids[mgrid];
+// 	vector t = ts[mgrid];
+// 	int idx = idxes[mgrid];
+
+// 	// Out = grid - p1;
+// 	Displace = length(grid - p1);
+
+// 	// Out = normalize(transform("object", P));
+// 	// Out = normalize(p1);
+// 	// Out = N;
+
+// 	// p1 = transform("object", P);
+// 	p1 += N * Displace;
+// 	n = normalize(transform("object", N));
+
+// 	make_grids(p1, n, grid_scale, grids, ts, idxes);
+// 	grid = grids[mgrid];
+// 	t = ts[mgrid];
+// 	idx = idxes[mgrid];
+
+// 	Displace += t[idx];
+
+
+// 	return;
+
+// 	Displace = t[idx];
+
+// 	if (mod(p1[idx], grid_scale * 2) == 0) {
+// 		Displace = -t[idx];
+// 	}
+
+
+// 	vector du = normalize(dPdu);
+// 	vector dv = normalize(dPdv);
+// 	// Out = dv;
+
+// 	// float dv_max = fea_max_component(abs(dv));
+// 	// if (!fea_near(dv_max, 1.0, 0.01)) {
+// 	// 	Displace = t[idx];
+// 	// }
+
+// 	// float du_max = fea_max_component(abs(du));
+// 	// if (!fea_near(du_max, 1.0, 0.01)) {
+// 	// 	Displace = abs(t[idx]) - grid_scale;
+// 	// }
+
+// 	// point grid = fea_trunc_to(p1, grid_scale);
+// 	// vector t = (grid - p1) / n;
+// 	// float tmin = fea_min_component(abs(t));
+// 	// Displace = -abs(tmin);
+// 	return;
+// }
+
+// {
+// 	vector n = normalize(transform("object", N));
+// 	vector d = vector(
+// 		dot(n, FEA_XAXIS),
+// 		dot(n, FEA_YAXIS),
+// 		dot(n, FEA_ZAXIS)
+// 	);
+
+// 	int aidx = fea_max_axis(abs(d));
+
+// 	point p1 = transform("object", P);
+// 	float grid_scale = 0.1;
+// 	point grid = fea_trunc_to(p1, grid_scale);
+// 	vector t = (grid - p1) / n;
+
+// 	Displace = t[aidx];// * abs(d[aidx]);
+
+
+// 	return;
+// }
+
+// {
+// 	vector n = normalize(transform("object", N));
+// 	int nidx = fea_max_axis(abs(n));
+// 	int is_mid = !(abs(n[nidx]) < FEA_NORM2 * 1.1 || abs(n[nidx]) > FEA_NORM2 * 1.2);
+// 	// Out = is_mid ? 0.2 : 0.8;
+
+// 	point p1 = transform("object", P);
+// 	float grid_scale = 0.1;
+// 	// p1 = fea_round_to(p1, grid_scale * 10.0);
+// 	point gride = fea_expand_to(p1, grid_scale);
+// 	point gridr = fea_round_to(p1, grid_scale);
+// 	point gridt = fea_trunc_to(p1, grid_scale);
+
+// 	vector te = (gride - p1) / n;
+// 	vector tr = (gridr - p1) / n;
+// 	vector tt = (gridt - p1) / n;
+
+// 	int teidx = fea_min_axis(abs(te));
+// 	int tridx = fea_min_axis(abs(tr));
+// 	int ttidx = fea_min_axis(abs(tt));
+
+// 	// float temin = fea_min_component(abs(te));
+// 	// float trmin = fea_min_component(abs(tr));
+// 	// float ttmin = fea_min_component(abs(tt));
+
+// 	float temin = te[teidx];
+// 	float trmin = tr[tridx];
+// 	float ttmin = tt[ttidx];
+
+// 	Displace = min(temin, min(trmin, ttmin));
+// 	Displace = min(temin, ttmin);
+// 	Displace = trmin - ttmin;
+
+// 	Displace = temin;
+// 	Displace = trmin;
+// 	// Displace = ttmin;
+// 	return;
+// }
+
+// {
+// 	vector n = transform("object", N);
+// 	int nidx = fea_max_axis(abs(n));
+// 	// int is_diag = !(abs(n[nidx]) > FEA_NORM2 * 1.1);
+// 	// int is_diag = !(abs(n[nidx]) > 0.9);
+// 	int is_mid = !(abs(n[nidx]) < FEA_NORM2 || abs(n[nidx]) > FEA_NORM2 * 1.1);
+// 	Out = is_mid ? 0.2 : 0.8;
+
+// 	point p1 = transform("object", P);
+// 	float grid_scale = 0.2;
+// 	point grid = fea_round_to(p1, grid_scale);
+
+// 	vector t = (grid[nidx] - p1[nidx]) / n[nidx];
+// 	int midx = fea_min_axis(abs(t));
+
+// 	Displace = t[midx];
+// 	if (is_mid) {
+// 		Displace *= abs(n[nidx]);
+// 	}
+
+// 	return;
+// }
+
+// {
+// 	vector n = transform("object", N);
+// 	int nidx = fea_max_axis_idx(n);
+// 	int is_diag = !(abs(n[nidx]) > FEA_NORM2 * 1.1);
+// 	// int is_diag = !(abs(n[nidx]) > 0.9);
+// 	Out = is_diag ? 0.2 : 0.8;
+
+// 	point p1 = transform("object", P);
+// 	float grid_scale = 10.0;
+// 	p1 = fea_grid_coord(p1, "object", grid_scale);
+// 	point grid = sign(n);
+
+// 	vector t = (grid - p1) / n;
+// 	int midx = fea_min_axis_idx(t);
+
+// 	Displace = t[midx] * (grid_scale / 2.0);
+// 	return;
+// }
+#endif
+
+#if 0
 // 	point coord = in_uvw / in_uvw_scale;
 // 	// Curl Noise test
 // 	// float epsilon = 0.0001;
