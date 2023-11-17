@@ -32,7 +32,7 @@ float fea_lerp(float x, float from_a, float from_b, float to_a, float to_b) {
 	float per = fea_per(x, from_a, from_b);
 
 	// Typical lerp.
-	return fea_lerp(x, to_a, to_b);
+	return fea_lerp(per, to_a, to_b);
 }
 
 
