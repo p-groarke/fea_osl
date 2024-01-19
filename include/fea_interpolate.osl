@@ -3,7 +3,7 @@
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_interpolate_osl
 #define fea_interpolate_osl
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_math.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_math.osl"
 
 // Given x in the range [a, b], converts to percentage.
 //

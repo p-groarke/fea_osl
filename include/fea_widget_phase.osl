@@ -3,8 +3,8 @@
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_widget_phase_osl
 #define fea_widget_phase_osl
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_hash.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_hash.osl"
 
 #define FEA_WGT_PHASE_INPUTS \
 	FEA_SPACER(200), \

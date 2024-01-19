@@ -3,10 +3,11 @@
 // Copyright 2023 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_phase.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_glsl_compat.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_constants.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_phase.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_glsl_compat.osl"
 
 
 shader BoringRocks
@@ -127,14 +128,14 @@ shader BoringRocks
 	// 	// point streched_coord = fea_transform(uvw_data.coord_space, "tangent", coord);
 	// 	point streched_coord = coord;
 	// 	// streched_coord[0] /= 10.0;
-	// 	// vector dir = rotate(fea_xaxis, phase, fea_yaxis);
+	// 	// vector dir = rotate(FEA_XAXIS, phase, FEA_YAXIS);
 	// 	// streched_coord *= dir;
 	// 	fea_tsimplex_ret noise3 = fea_utsimplex_fbm(streched_coord, 4, 1.8, vector(0), phase + 3452.5634);
 
 	// 	// vector n = fea_tsimplex_normal("tangent", noise3);
 
 	// 	vector ortho = fea_transform(uvw_data.coord_space, "tangent", noise3.gradient);
-	// 	ortho = rotate(ortho, M_PI_2, fea_zaxis);
+	// 	ortho = rotate(ortho, M_PI_2, FEA_ZAXIS);
 	// 	float a = dot(normalize(dPdu), normalize(ortho));
 	// 	vector dg_snap = fea_floor_to(noise3.dg, 10.0);
 	// 	out_base_color = dg_snap[1];
@@ -144,7 +145,7 @@ shader BoringRocks
 	// 	grad = fea_transform(uvw_data.coord_space, "tangent", grad);
 	// 	vector surf_grad = grad - up * dot(grad, up);
 	// 	// surf_grad = fea_floor_to(surf_grad, 0.1);
-	// 	// surf_grad = fea_xaxis + surf_grad;
+	// 	// surf_grad = FEA_XAXIS + surf_grad;
 
 	// 	// float c = surf_grad[0] + surf_grad[1];// + surf_grad[2];
 	// 	// coord = fea_triangle_saw(coord);
@@ -160,11 +161,11 @@ shader BoringRocks
 	// 	// 	return;
 	// 	// }
 
-	// 	float a1 = dot(surf_grad_norm, fea_xaxis);
-	// 	vector cmp = rotate(fea_yaxis, phase, fea_xaxis);
+	// 	float a1 = dot(surf_grad_norm, FEA_XAXIS);
+	// 	vector cmp = rotate(FEA_YAXIS, phase, FEA_XAXIS);
 	// 	float a2 = dot(normalize(noise3.gradient), cmp);
-	// 	float a3 = dot(surf_grad_norm, -fea_xaxis);
-	// 	float a4 = dot(surf_grad_norm, -fea_yaxis);
+	// 	float a3 = dot(surf_grad_norm, -FEA_XAXIS);
+	// 	float a4 = dot(surf_grad_norm, -FEA_YAXIS);
 
 	// 	// if (abs(a1) > 0.9 || abs(a2) > 0.9 || abs(a3) > 0.9 || abs(a4) > 0.9) {
 	// 	float peak = fea_peak(noise1.value, 0.5);
@@ -278,7 +279,7 @@ shader BoringRocks
 
 		// Big cracks
 		if (in_large_cracks != 0.0) {
-			vector cmp = rotate(fea_xaxis, phase, fea_zaxis);
+			vector cmp = rotate(FEA_XAXIS, phase, FEA_ZAXIS);
 			float a = dot(normalize(surface_gradient1), cmp);
 			float peak = fea_peak(noise1.value, 0.5);
 			disp += peak * a * noise2.value * in_large_cracks;
@@ -286,7 +287,7 @@ shader BoringRocks
 
 		// Ridges
 		if (in_ridges != 0.0) {
-			vector cmp = rotate(fea_yaxis, phase * 0.1, fea_zaxis);
+			vector cmp = rotate(FEA_YAXIS, phase * 0.1, FEA_ZAXIS);
 			float a = dot(normalize(surface_gradient1), cmp);
 			a = fea_peak(a, 0.5);
 			float saw = fea_triangle_saw(noise1.value);
@@ -388,7 +389,7 @@ shader BoringRocks
 		// vector grad_dir = normalize(grad);
 		// vector surf_grad = grad - up * dot(grad, up);
 
-		// // float a = dot(surf_grad, fea_xaxis);
+		// // float a = dot(surf_grad, FEA_XAXIS);
 		// // if (abs(a) < 0.1) {
 		// // 	out_base_color = fea_red;
 		// // }

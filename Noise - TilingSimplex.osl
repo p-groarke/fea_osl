@@ -3,11 +3,12 @@
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_phase.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_shape.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_interpolate.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_constants.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_phase.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_shape.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_interpolate.osl"
 
 // TODO : Debug why gradient is so far out-of-range of expected magnitude
 // of 2 (for -1,1) and 1 (for 0,1).
@@ -115,7 +116,8 @@ shader TilingSimplex
 	point coord = uvw_data.coord;
 	float phase = FEA_WGT_GET_PHASE;
 
-	fea_tsimplex_ret ret = fea_utsimplex_fbm(coord, in_fbm_octaves, in_lacunarity, in_tiling, phase);
+	// fea_tsimplex_ret ret = fea_utsimplex_fbm(coord, in_fbm_octaves, in_lacunarity, in_tiling, phase);
+	fea_tsimplex_ret ret = fea_utsimplex(coord, in_tiling, phase);
 	ret.value = fea_lerp(ret.value, 0.0, 1.0, in_low_clamp, in_high_clamp);
 
 	out_col = mix(in_low_color, in_high_color, ret.value);
@@ -124,29 +126,54 @@ shader TilingSimplex
 	out_second_deriv = ret.dg;
 	out_second_deriv2 = ret.dg2;
 
+	vector m_tsimplex_normal(string input_space, vector scale, vector gradient) {
+		vector zz = normalize(N); // Fix shader imprecision.
+		vector xx = normalize(gradient);
+		vector yy = cross(zz, xx);
+		zz = cross(xx, yy);
+
+		matrix m = matrix(
+			xx[0], xx[1], xx[2], 0,
+			yy[0], yy[1], yy[2], 0,
+			zz[0], zz[1], zz[2], 0,
+			0, 0, 0, 1
+		);
+
+		return transform(m, normal(0,0,1));
+
+		// // vector up = fea_transform("world", "tangent", N);
+		// vector up = N;
+
+		// vector grad = gradient * scale;
+		// grad = fea_transform(input_space, "world", grad);
+		// vector surf_grad = grad - up * dot(grad, up);
+		// return fea_transform("world", "tangent", normalize(up + surf_grad));
+	}
+
+
 	// Compute normal using surface gradient method.
-	vector n = fea_tsimplex_normal(uvw_data.coord_space, uvw_data.scale,
+	vector n = m_tsimplex_normal(uvw_data.coord_space, uvw_data.scale,
 			ret.gradient);
 	// Normalize to expected rgb color map [-1,1] -> [0,1].
 	out_normal = n * 0.5 + 0.5;
 
 #if 0
-	// float mag = length(ret.gradient * uvw_data.scale);
-	// if (mag >= 1.0) {
-	// 	out_col = fea_red;
-	// }
-	// if (mag >= 2.0) {
-	// 	out_col = fea_green;
-	// }
-	// if (mag >= 4.0) {
-	// 	out_col = fea_blue;
-	// }
-	// if (mag >= 5.0) {
-	// 	out_col = color(1);
-	// }
-	// if (mag >= 6.9) {
-	// 	out_col = color(0);
-	// }
+	float mag = length(ret.gradient * uvw_data.scale);
+	if (mag >= 1.0) {
+		out_col = FEA_GREEN;
+	}
+	if (mag >= 2.0) {
+		out_col = FEA_BLUE;
+	}
+	if (mag >= 4.0) {
+		out_col = FEA_RED;
+	}
+	if (mag >= 5.0) {
+		out_col = color(0);
+	}
+	if (mag >= 6.9) {
+		out_col = color(1);
+	}
 #endif
 
 }

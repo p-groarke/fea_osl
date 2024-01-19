@@ -3,11 +3,10 @@
 // // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_phase.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_shape.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_phase.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_shape.osl"
 
 shader Playground
 [[

@@ -58,7 +58,7 @@ matrix fea_tbn() {
 }
 
 // Transforms coordinate from one space to another.
-// Adds support to "tangent" space, in addition to OSL spaces.
+// Adds support of "tangent" space, in addition to OSL spaces.
 #define fea_imp_transform_gen(ptype) \
 ptype fea_transform(string from_space, string to_space, ptype x) { \
 	if (from_space == to_space) { \

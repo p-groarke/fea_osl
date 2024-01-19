@@ -4,8 +4,8 @@
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_shape_osl
 #define fea_shape_osl
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_math.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_space.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_math.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_space.osl"
 
 #define fea_feather_interp_opts \
 	"Hermite:0" \
