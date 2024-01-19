@@ -1,0 +1,45 @@
+// fea_conversions osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_conversions_osl
+#define fea_conversions_osl
+
+// Converts a precentage to radian.
+float fea_per_to_rad(float percent) {
+	return percent * M_2PI;
+}
+
+// Converts a radian to percentage.
+float fea_rad_to_per(float rad) {
+	return rad * 0.15915494309189498;
+}
+
+// Converts a precentage to degree.
+float fea_per_to_deg(float percent) {
+	return percent * 360.0;
+}
+
+// Converts a degree to percentage.
+float fea_deg_to_per(float deg) {
+	return deg * 0.00277777777777778;
+}
+
+// Converts a degree to radian.
+float fea_deg_to_rad(float deg) {
+	return radians(deg);
+	// return deg * 0.01745329251994330;
+}
+
+// Converts a radian to degree.
+float fea_rad_to_deg(float rad) {
+	return degrees(rad);
+	// return rad * 57.295779513082321;
+}
+
+// Given a radian angle, returns a 2d vector pointing
+// in that direction.
+vector fea_angle_to_vec(float rad) {
+	return vector(cos(rad), sin(rad), 0);
+}
+
+#endif

@@ -29,13 +29,7 @@ vector4 make_vector4(float v) {
 	return vector4(v, v, v, v);
 }
 
-float fract(float in) {
-	return in - floor(in);
-}
 vector2 fract(vector2 in) {
-	return in - floor(in);
-}
-vector fract(vector in) {
 	return in - floor(in);
 }
 vector4 fract(vector4 in) {

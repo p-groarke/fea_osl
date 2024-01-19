@@ -9,13 +9,24 @@
 #define fea_imp_ze(eps) vector(0.0, 0.0, eps)
 
 // A simpler less expensive numerical gradient.
+//
+// Expected func signature :
+// float func(point);
+#define fea_gradient_1d(coord, eps, func) \
+	vector( \
+		func(coord + fea_imp_xe(eps)) - func(coord - fea_imp_xe(eps)), \
+		0.0, \
+		0.0 \
+	) / (2.0 * eps)
+
+// A simpler less expensive numerical gradient.
 // Basically Robert's Cross.
 // Assigns the results to out_vector
 //
 // Expected func signature :
-// float func(vector);
-#define fea_gradient_2d(coord, eps, func, out_vector) \
-	out_vector = vector( \
+// float func(point);
+#define fea_gradient_2d(coord, eps, func) \
+	vector( \
 		func(coord + fea_imp_xe(eps)) - func(coord - fea_imp_xe(eps)), \
 		func(coord + fea_imp_ye(eps)) - func(coord - fea_imp_ye(eps)), \
 		0.0 \
@@ -25,26 +36,22 @@
 // Basically Robert's Cross expanded in z.
 //
 // Expected func signature :
-// float func(vector);
-#define fea_gradient_3d(coord, eps, func, out_vector) \
-	out_vector = vector( \
+// float func(point);
+#define fea_gradient_3d(coord, eps, func) \
+	vector( \
 		func(coord + fea_imp_xe(eps)) - func(coord - fea_imp_xe(eps)), \
 		func(coord + fea_imp_ye(eps)) - func(coord - fea_imp_ye(eps)), \
 		func(coord + fea_imp_ze(eps)) - func(coord - fea_imp_ze(eps)) \
 	) / (2.0 * eps)
 
 
-// Computes the distance from point x to your function.
-// That is : abs(f(x)) / abs(gradient(f(x)))
-// https://iquilezles.org/articles/distance/
-//
-// Expected func signature :
-// float func(vector);
-#define fea_distance_to_func_2d(coord, eps, func, out_float) \
-{ \
-	vector grad = 0; \
-	fea_gradient_2d(coord, eps, func, grad); \
-	out_float = abs(func(coord)) / length(grad) \
+// Used internally by distance_to_func, doesn't divide by 0.
+float fea_imp_distance_to_func(float d, vector grad, float eps) {
+	float l = length(grad);
+	if (l < eps) {
+		return 0.0;
+	}
+	return d / l;
 }
 
 // Computes the distance from point x to your function.
@@ -52,13 +59,30 @@
 // https://iquilezles.org/articles/distance/
 //
 // Expected func signature :
-// float func(vector);
-#define fea_distance_to_func_3d(coord, eps, func, out_float) \
-{ \
-	vector grad = 0; \
-	fea_gradient_3d(coord, eps, func, grad); \
-	out_float = abs(func(coord)) / length(grad) \
-}
+// float func(point);
+#define fea_distance_to_func_1d(coord, eps, func) \
+	fea_imp_distance_to_func(func(coord), fea_gradient_1d(coord, eps, func), eps)
+	//  func(coord) / length(fea_gradient_2d(coord, eps, func))
+
+// Computes the distance from point x to your function.
+// That is : abs(f(x)) / abs(gradient(f(x)))
+// https://iquilezles.org/articles/distance/
+//
+// Expected func signature :
+// float func(point);
+#define fea_distance_to_func_2d(coord, eps, func) \
+	fea_imp_distance_to_func(func(coord), fea_gradient_2d(coord, eps, func), eps)
+	//  func(coord) / length(fea_gradient_2d(coord, eps, func))
+
+// Computes the distance from point x to your function.
+// That is : abs(f(x)) / abs(gradient(f(x)))
+// https://iquilezles.org/articles/distance/
+//
+// Expected func signature :
+// float func(point);
+#define fea_distance_to_func_3d(coord, eps, func) \
+	fea_imp_distance_to_func(func(coord), fea_gradient_3d(coord, eps, func), eps)
+	// func(coord) / length(fea_gradient_3d(coord, eps, func))
 
 
 // Returns a matrix filled with all neighboring values
@@ -90,6 +114,84 @@
 	/* bottomright */ \
 	out_matrix[2][2] = func(coord + xeps - yeps); \
 }
+
+// Returns a matrix filled with all neighboring values
+// of func evaluated with x +- eps, y +- eps and z +- eps.
+//
+// The out_matrix_arr expects to be a matrix array of size 3.
+// Where :
+// out_matrix[0] is z negative (-eps)
+// out_matrix[1] is z 0
+// out_matrix[2] is z positive (eps)
+//
+// Expected func signature :
+// float func(vector);
+// #define fea_neighbourhood_matrix_3d(coord, eps, func, out_matrix) \
+// { \
+// 	vector xeps = fea_imp_xe(eps); \
+// 	vector yeps = fea_imp_ye(eps); \
+// 	vector zeps = fea_imp_ze(eps); \
+// \
+// 	/* z negative */ \
+// 	/* topleft */ \
+// 	out_matrix[0][0][0] = func(coord - xeps + yeps - zeps); \
+// 	/* topcenter */ \
+// 	out_matrix[0][0][1] = func(coord + yeps - zeps); \
+// 	/* topright */ \
+// 	out_matrix[0][0][2] = func(coord + xeps + yeps - zeps); \
+// 	/* middleleft */ \
+// 	out_matrix[0][1][0] = func(coord - xeps - zeps); \
+// 	/* middlecenter */ \
+// 	out_matrix[0][1][1] = func(coord - zeps); \
+// 	/* middleright */ \
+// 	out_matrix[0][1][2] = func(coord + xeps - zeps); \
+// 	/* bottomleft */ \
+// 	out_matrix[0][2][0] = func(coord - xeps - yeps - zeps); \
+// 	/* bottomcenter */ \
+// 	out_matrix[0][2][1] = func(coord - yeps - zeps); \
+// 	/* bottomright */ \
+// 	out_matrix[0][2][2] = func(coord + xeps - yeps - zeps); \
+// 	\
+// 	/* z center (0) */ \
+// 	/* topleft */ \
+// 	out_matrix[1][0][0] = func(coord - xeps + yeps); \
+// 	/* topcenter */ \
+// 	out_matrix[1][0][1] = func(coord + yeps); \
+// 	/* topright */ \
+// 	out_matrix[1][0][2] = func(coord + xeps + yeps); \
+// 	/* middleleft */ \
+// 	out_matrix[1][1][0] = func(coord - xeps); \
+// 	/* middlecenter */ \
+// 	out_matrix[1][1][1] = func(coord); \
+// 	/* middleright */ \
+// 	out_matrix[1][1][2] = func(coord + xeps); \
+// 	/* bottomleft */ \
+// 	out_matrix[1][2][0] = func(coord - xeps - yeps); \
+// 	/* bottomcenter */ \
+// 	out_matrix[1][2][1] = func(coord - yeps); \
+// 	/* bottomright */ \
+// 	out_matrix[1][2][2] = func(coord + xeps - yeps); \
+// 	\
+// 	/* z positive */ \
+// 	/* topleft */ \
+// 	out_matrix[2][0][0] = func(coord - xeps + yeps + zeps); \
+// 	/* topcenter */ \
+// 	out_matrix[2][0][1] = func(coord + yeps + zeps); \
+// 	/* topright */ \
+// 	out_matrix[2][0][2] = func(coord + xeps + yeps + zeps); \
+// 	/* middleleft */ \
+// 	out_matrix[2][1][0] = func(coord - xeps + zeps); \
+// 	/* middlecenter */ \
+// 	out_matrix[2][1][1] = func(coord + zeps); \
+// 	/* middleright */ \
+// 	out_matrix[2][1][2] = func(coord + xeps + zeps); \
+// 	/* bottomleft */ \
+// 	out_matrix[2][2][0] = func(coord - xeps - yeps + zeps); \
+// 	/* bottomcenter */ \
+// 	out_matrix[2][2][1] = func(coord - yeps + zeps); \
+// 	/* bottomright */ \
+// 	out_matrix[2][2][2] = func(coord + xeps - yeps + zeps); \
+// }
 
 // Sobel operator convolution.
 // Pass in a 3x3 neighbourhood matrix of data to convolve.
@@ -159,7 +261,7 @@ float fea_outline_2d(matrix m) {
 // Calls your function with frequency to evaluate.
 //
 // Expected func signature :
-// type f(float);
+// type f(float frequency);
 //
 // Your function return type must implement the following operators :
 // - add(value, value)
@@ -183,6 +285,20 @@ float fea_outline_2d(matrix m) {
 	if (iterations >= 4) fea_imp_fractalize(lacunarity, func, out_value) \
 	if (iterations >= 5) fea_imp_fractalize(lacunarity, func, out_value) \
 	if (iterations >= 6) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 7) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 8) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 9) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 10) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 11) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 12) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 13) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 14) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 15) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 16) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 17) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 18) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 19) fea_imp_fractalize(lacunarity, func, out_value) \
+	if (iterations >= 20) fea_imp_fractalize(lacunarity, func, out_value) \
 	if (iterations >= 1) { \
 		out_value /= fea_m_norm; \
 	} \
@@ -205,5 +321,20 @@ float fea_outline_2d(matrix m) {
 // 		out_value /= fea_m_norm; \
 // 	} \
 // }
+
+
+// Deprecated
+// Clouds (aka Fractal Brownian Motion).
+float fea_fbm(int iterations, vector coord, float phase) {
+	float ret = 0.0;
+
+	for (int i = 1; i < iterations + 1; ++i) {
+		float size = i / float(iterations);
+		ret += noise("usimplex", coord / size, phase + size) * size;
+	}
+
+	ret /= float(iterations);
+	return ret;
+}
 
 #endif // fea_functional_osl

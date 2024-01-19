@@ -1,77 +1,9 @@
-// fea osl libraries by Philippe Groarke
-// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// fea_interpolate osl libraries by Philippe Groarke
+// Copyright 2023 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
-#ifndef fea_osl
-#define fea_osl
-
-#define FEA_FLT_MAX 3.402823e+38
-
-/**
- * Conversions
- */
-
-// Converts a precentage to radian.
-float fea_per_to_rad(float percent) {
-	return percent * M_2PI;
-}
-
-// Converts a radian to percentage.
-float fea_rad_to_per(float rad) {
-	return rad * 0.15915494309189498;
-}
-
-// Converts a precentage to degree.
-float fea_per_to_deg(float percent) {
-	return percent * 360.0;
-}
-
-// Converts a degree to percentage.
-float fea_deg_to_per(float deg) {
-	return deg * 0.00277777777777778;
-}
-
-// Converts a degree to radian.
-float fea_deg_to_rad(float deg) {
-	return radians(deg);
-	// return deg * 0.01745329251994330;
-}
-
-// Converts a radian to degree.
-float fea_rad_to_deg(float rad) {
-	return degrees(rad);
-	// return rad * 57.295779513082321;
-}
-
-// Given a radian angle, returns a 2d vector pointing
-// in that direction.
-vector fea_angle_to_vec(float rad) {
-	return vector(cos(rad), sin(rad), 0);
-}
-
-
-/**
- * Interpolation
- */
-
-// Given a value val, returns the closest multiple.
-float fea_closest_multiple(float val, float multiple) {
-	if (multiple == 0.0) {
-		return 0.0;
-	}
-	return floor(val / multiple) * multiple;
-}
-
-// Floor up to decimal.
-float fea_floor_to(float val, float decimal_mul) {
-	return floor(val * decimal_mul) / decimal_mul;
-}
-vector fea_floor_to(vector val, float decimal_mul) {
-	return vector (
-			floor(val[0] * decimal_mul) / decimal_mul,
-			floor(val[1] * decimal_mul) / decimal_mul,
-			floor(val[2] * decimal_mul) / decimal_mul
-	);
-}
+#ifndef fea_interpolate_osl
+#define fea_interpolate_osl
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_math.osl"
 
 // Given x in the range [a, b], converts to percentage.
 //
@@ -93,21 +25,6 @@ float fea_lerp(float x, float a, float b) {
 	return a + x * (b - a);
 	// return (1.0 - x) * a + x * b;
 }
-// color fea_lerp(float x, color a, color b) {
-// 	return color(
-// 		fea_lerp(x, a[0], b[0]),
-// 		fea_lerp(x, a[1], b[1]),
-// 		fea_lerp(x, a[2], b[2])
-// 	);
-// }
-
-// Given an input x and a crest point >= 0,
-// creates an inverted V-shaped graph where maximum = crest point.
-float fea_corner_inflection(float x, float crest_point) {
-	float cp = crest_point < 0.0 ? 0.0 : crest_point;
-	return 1.0 - (abs(cp - x) / cp);
-}
-
 // With x in the range [from_a, from_b], lerp to the range [to_a, to_b].
 // Aka, lerp where x is not between 0, 1.
 float fea_lerp(float x, float from_a, float from_b, float to_a, float to_b) {
@@ -256,72 +173,4 @@ float fea_catmull_rom(float x, float alpha,
 	return c;
 }
 
-// Average vector components.
-float fea_average(vector in) {
-	return (in[0] + in[1] + in[2]) / 3.0;
-}
-
-// Average color components.
-float fea_average(color in) {
-	return (in[0] + in[1] + in[2]) / 3.0;
-}
-
-
-/**
- * Math Utils
- */
-
-// Clouds (aka Fractal Brownian Motion).
-float fea_fbm(int iterations, vector coord, float phase) {
-	float ret = 0.0;
-
-	for (int i = 1; i < iterations + 1; ++i) {
-		float size = i / float(iterations);
-		ret += noise("usimplex", coord / size, phase + size) * size;
-	}
-
-	ret /= float(iterations);
-	return ret;
-}
-
-// Returns squared magnitude.
-float fea_length_squared(vector x) {
-	return dot(x, x);
-}
-
-// sin from 0 to 1
-float fea_usin(float x) {
-	return (sin(x) + 1.0) * 0.5;
-}
-vector fea_usin(vector x) {
-	return (sin(x) + 1.0) * 0.5;
-}
-
-// cos from 0 to 1
-float fea_ucos(float x) {
-	return (cos(x) + 1.0) * 0.5;
-}
-vector fea_ucos(vector x) {
-	return (cos(x) + 1.0) * 0.5;
-}
-
-int fea_near(float x, float target, float eps) {
-	return abs(target - x) < eps;
-}
-
-// For max viewport, :/
-// TODO : Find an OK implementation, without bit fiddling.
-float fea_cbrt(float x) {
-	return pow(abs(x), 0.33333333333333333);
-}
-
-// atan2 compatible in both viewport and renderer.
-// Note : atan2(0/0) is undefined in viewport, fix it.
-float fea_atan2(float y, float x) {
-	float ret = 0.0;
-	if (x != 0.0 && y != 0.0) {
-		ret = atan2(y, x);
-	}
-	return ret;
-}
-#endif // fea_osl
+#endif

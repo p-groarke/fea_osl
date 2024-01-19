@@ -3,10 +3,10 @@
 // Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_color.osl"
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_functional.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_color.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_functional.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_interpolate.osl"
 
 #define noise_t int
 
@@ -111,11 +111,11 @@ float emphasize_top(float mag, float thresh) {
 
 shader OrganicNoise
 [[
+	string label = "Noise - Organic Noise",
 	string help  =
 		"<h3>Organic Noise</h3>"
-		"Modulates and filters OSL noises to produce organic looking noises. Garden variety of caustic, fleshy and abstract noises."
-		,
-	string label = "Organic Noise"
+		"Modulates and filters OSL noises to produce organic looking noises. "
+		"Garden variety of caustic, fleshy and abstract noises.",
 ]]
 (
 	int noise_type = 0

@@ -3,7 +3,15 @@
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_widget_uvw_osl
 #define fea_widget_uvw_osl
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
+
+#define fea_wgt_uvw_mode_opts \
+	"Map Channel:0" \
+	"|UVW Input:1" \
+	"|Object Space (No UVWs):2" \
+	"|World Space (No UVWs):3" \
+	"|Camera Space (No UVWs):4"
+	// "|Screen Space (No UVWs):5"
 
 #define FEA_WGT_UVW_INPUTS \
 	FEA_SPACER(201), \
@@ -13,13 +21,7 @@
 	[[ \
 		string widget = "mapper", \
 		string label = "UVW Mode", \
-		string options = \
-			"Map Channel:0" \
-			"|UVW Input:1" \
-			"|Object Space (No UVWs):2" \
-			"|World Space (No UVWs):3" \
-			"|Camera Space (No UVWs):4" \
-			, \
+		string options = fea_wgt_uvw_mode_opts, \
 		string help = "Select the UVW input mode.", \
 		int connectable = 0, \
 	]], \
@@ -65,14 +67,32 @@
 		int connectable = 0, \
 	]]
 
-point fea_wgt_compute_uvw(int mode, int map_channel, point uvw_input,
+
+struct fea_wgt_uvw_ret {
+	point coord; // the coordinate to process
+	string coord_space; // tangent, object, world, camera, etc
+	vector scale; // per axis scale, including global scale (multiplied)
+};
+void fea_init(output fea_wgt_uvw_ret ret) {
+	ret.coord = 0;
+	ret.coord_space = "null";
+	ret.scale = 0;
+}
+
+// Given the input parameters, computes the coordinate to evalute.
+// Returns a helper struct with extra information.
+// You can call the macro instead.
+fea_wgt_uvw_ret fea_wgt_compute_uvw(int mode, int map_channel, point uvw_input,
 		float scale, vector axis_scale, point offset, int wrap) {
-	point ret = 0;
+	fea_wgt_uvw_ret ret;
+	fea_init(ret);
 
 	if (mode == 0) {
+		// uvw map channel
+		ret.coord_space = "tangent";
+
 		// map selection
-		if (!getattribute(format("UV%d", map_channel), ret))
-		{
+		if (!getattribute(format("UV%d", map_channel), ret.coord)) {
 			// Get MAXtoA style UV
 			float w = 0.0;
 
@@ -80,36 +100,50 @@ point fea_wgt_compute_uvw(int mode, int map_channel, point uvw_input,
 			// a special way in MAXtoA
 			if (map_channel == 1)
 			{
-				ret = vector(u,v,0);
+				ret.coord = point(u,v,0);
 				getattribute("w",  w);
 			}
 			else // ...the others are just attributes
 			{
-				getattribute(format("uv_%d", map_channel), ret);
+				getattribute(format("uv_%d", map_channel), ret.coord);
 				getattribute(format("w_%d", map_channel), w);
 			}
 			// Insert 3rd dimension if any
-			ret[2] = w;
+			ret.coord[2] = w;
 		}
+
+		// Fix imprecision / undefined access in w component.
+		// Much sadness was had.
+		float eps = 1000000;
+		ret.coord[2] = floor(ret.coord[2] * eps) / eps;
+
 	} else if (mode == 1) {
-		// node input
-		ret = uvw_input;
+		// uvw input param
+		ret.coord_space = "tangent";
+		ret.coord = uvw_input;
 	} else if (mode == 2) {
 		// object space
-		ret = transform("object", P);
+		ret.coord_space = "object";
+		ret.coord = transform(ret.coord_space, P);
 	} else if (mode == 3) {
 		// world space
-		ret = transform("world", P);
+		ret.coord_space = "world";
+		ret.coord = transform(ret.coord_space, P);
 	} else if (mode == 4) {
 		// camera space
-		ret = transform("camera", P);
+		ret.coord_space = "camera";
+		ret.coord = transform(ret.coord_space, P);
+	} else if (mode == 5) {
+		// screen space
+		ret.coord_space = "screen";
+		ret.coord = transform(ret.coord_space, P);
 	}
 
-	ret = (ret - offset) / axis_scale / scale;
+	ret.scale = 1.0 / axis_scale / scale;
+	ret.coord = (ret.coord - offset) * ret.scale;
 	if (wrap) {
-		ret -= floor(ret);
+		ret.coord -= floor(ret.coord);
 	}
-
 	return ret;
 }
 

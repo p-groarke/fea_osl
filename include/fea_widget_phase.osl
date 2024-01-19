@@ -3,22 +3,26 @@
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_widget_phase_osl
 #define fea_widget_phase_osl
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_hash.osl"
 
 #define FEA_WGT_PHASE_INPUTS \
 	FEA_SPACER(200), \
 	FEA_TITLE(200, "Phase"), \
 \
-	int in_phase_mode = 0 \
+	int in_phase_mode = 2 \
 	[[ \
 		string widget = "mapper", \
 		string label = "Phase Mode", \
 		string options = \
-			"Time:0" \
+			"Seed:2" \
+			"|Time:0" \
 			"|Phase Input:1" \
-			"|Constant Seed:2" \
+			"|Position + Seed:3" \
 			, \
-		string help = "Select the Phase input mode.", \
+		string help = "Select the Phase input mode.<br>" \
+			"Note, 'Position + Seed' only works in renderer." \
+			, \
 		int connectable = 0, \
 	]], \
 	float in_phase_time = 0.0 \
@@ -44,11 +48,12 @@
 	float in_phase_offset = 0.0 \
 	[[ \
 		string label = "Phase Offset / Seed", \
-		string help = "A fixed amount added to phase. When in 'Constant Seed' mode, this is the value.", \
+		string help = "A fixed amount added to phase. When in 'Seed' mode, this is the value.", \
 		int connectable = 0, \
 	]]
 
-float fea_wgt_compute_phase(int mode, float ptime, float phase, float mul, float offset) {
+float fea_wgt_compute_phase(int mode, float ptime, float phase, float mul,
+		float offset) {
 	float ret = 0.0;
 	if (mode == 0) {
 		// scene time
@@ -59,11 +64,17 @@ float fea_wgt_compute_phase(int mode, float ptime, float phase, float mul, float
 	} else if (mode == 2) {
 		// seed
 		ret = offset;
+	} else if (mode == 3) {
+		// position + seed
+		point p = transform("object", "world", point(0));
+		vector h = fea_hash3_osl(offset, p);
+		ret = h[0] + h[1] + h[2] + offset;
 	}
 	return ret;
 }
 
 #define FEA_WGT_GET_PHASE \
-	fea_wgt_compute_phase(in_phase_mode, in_phase_time, in_phase_input, in_phase_mul, in_phase_offset)
+	fea_wgt_compute_phase(in_phase_mode, in_phase_time, in_phase_input, \
+			in_phase_mul, in_phase_offset)
 
 #endif // fea_widget_phase_osl

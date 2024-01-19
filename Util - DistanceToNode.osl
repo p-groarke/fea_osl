@@ -24,7 +24,7 @@ shader DistanceToNode
 		"<h3>Distance To Node</h3>"
 		"Outputs the current shaded fragment's distance to a selected node's center."
 		,
-	string label = "Distance To Node"
+	string label = "Util - Distance To Node"
 ]]
 (
 	string INode = "<Pick Object>"

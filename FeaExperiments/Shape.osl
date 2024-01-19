@@ -1,0 +1,196 @@
+// Copyright 2023 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_tsimplex.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_phase.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_shape.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_constants.osl"
+
+// The functions below in this "Common" tab are hereby placed in
+// the public domain. They may be used freely without restrictions.
+// To provide legal grounds for the public domain status, I hereby
+// certify that I am the original author of these. The weird name
+// "ptlined" is a nod to historic Renderman SL, but I wrote this code.
+// The name "aastep" is not really a nod to OSL, though.
+// I doubt that Larry Gritz got the rather obvious name from me,
+// but I was first, and I have a published book chapter from 2012
+// to prove it, and an (unpublished) RSL shader from 2006. :)
+
+
+// Compute the shortest distance from p to a line segment from p1 to p2.
+float ptlined(vector p1, vector p2, vector p) {
+  vector p1p2 = p2 - p1;
+  vector v = normalize(p1p2);
+  vector s = p - p1;
+  float t = dot(v, s);
+  if (t<0.0)
+  	return length(s);
+  if (t>length(p1p2))
+  	return length(p - p2);
+  return length(s - t*v);
+}
+
+
+// Auto-antialiased step function
+float maastep(float threshold, float value) {
+//   float afwidth = 0.7 * length(vec2(dFdx(value), dFdy(value)));
+  float afwidth = 0.005;
+  return smoothstep(threshold-afwidth, threshold+afwidth, value);
+}
+
+// Anti-aliased implicit line around v == t, in the spirit of
+// aastep(), with line width w specified in fragment space (pixels)
+float maaline(float t, float v, float w) {
+//   float fw = 0.7 * length(vector(Dx(v), Dy(v), 0));
+  float fw = 0.002;
+  return smoothstep(t-0.5*w*fw-fw, t-0.5*w*fw+fw, v)
+	- smoothstep(t+0.5*w*fw-fw, t+0.5*w*fw+fw, v);
+}
+
+// "Paint" a regular grid of implicit arrows to visualize a vector field.
+// The arrows are antialiased. (Jaggies are extra ugly in animated line art.)
+// The value for g should be constant over each grid cell, or you will
+// get strange results (bendy, wiggly or broken-up arrows).
+float vectorfield(vector g, vector st, float gscale, float linewidth) {
+  // pm.xy are coords [-0.5,0.5] relative to nearest arrow origin
+  vector pm = fract(st*gscale+0.5)-0.5;
+  float linedist = fea_distance_to_segment(pm, -g*0.5, g*0.5); // distance to arrow "body"
+  float line = 1.0 - maastep(linewidth*0.5, linedist);
+  // The arrowhead is an implicit triangle defined by three linear equations
+  float arrowsize = linewidth*0.7; // arrowhead size, eyeballed for nice look
+  vector a_vec = pm - g*0.5; // current coords relative to the pointy end
+  vector g_ = vector(-g.y, g.x, 0); // vector orthogonal to g
+  float arrow1 = dot(a_vec, -normalize(g)); // Distance to arrowhead base
+  float arrow2 = dot(a_vec, normalize( g + 1.5*g_ )); // to arrowhead right edge
+  float arrow3 = dot(a_vec, normalize( g - 1.5*g_ )); // to arrowhead left edge
+  float arrowd = max(max(arrow1, arrow2), arrow3); // if<arrowsize: inside triangle
+  float arrowhead = 1.0 - maastep(arrowsize, arrowd);
+  // Mask out cell borders where discontinuities cause errors in aastep()
+  vector bordermask = step(-0.45,pm)-step(0.45,pm);
+  float mask = bordermask.x * bordermask.y;
+  return max(line, arrowhead)*mask;
+}
+
+
+
+shader ShapeExp
+[[
+	string label = "ShapeExp",
+	string help  =
+		""
+]]
+(
+	int in_fbm_octaves = 3
+	[[
+		string label = "Octaves",
+		string help = "How many octaves used for the fractal brownian motion (clouds).",
+		int min = 1,
+		int max = 20,
+		int connectable = 0,
+		// string packName = "Octaves / Lacunarity",
+	]],
+
+	float in_lacunarity = 1.8
+	[[
+		string label = "Lacunarity",
+		string help = "The frequency growth factor used by the fractalization.",
+		float min = 0.01,
+		int connectable = 0,
+		// string packName = "Octaves / Lacunarity",
+	]],
+
+	vector in_tiling = 0.0
+	[[
+		string label = "Tile Size",
+		string help = "These are the x, y, z periods, used to tile the noise. [0, 0, 0] disables tiling (infinite noise).",
+		float max = 289.0,
+		int connectable = 0,
+	]],
+
+	FEA_SPACER(0),
+
+	float in_low_clamp = 0.0
+	[[
+		string label = "Low Value",
+		string help = "The minimum value of the noise. Hard clamped.",
+		float min = 0.0,
+		float max = 1.0,
+		// string packName = "High / Low Clamp",
+	]],
+
+	float in_high_clamp = 1.0
+	[[
+		string label = "High Value",
+		string help = "The maximum value of the noise. Hard clamped.",
+		float min = 0.0,
+		float max = 1.0,
+		// string packName = "High / Low Clamp",
+	]],
+
+	color in_low_color = 0
+	[[
+		string label = "Low Color",
+		string help = "The dark color (noise == 0).",
+	]],
+
+	color in_high_color = 1
+	[[
+		string label = "High Color",
+		string help = "The light color (noise == 1).",
+	]],
+
+	FEA_WGT_PHASE_INPUTS,
+	FEA_WGT_UVW_INPUTS,
+
+	output color out_col = 0
+	[[
+		string label = "Out (color)"
+	]],
+	output float out_float = 0
+	[[
+		string label = "Out (float)"
+	]],
+	output color out_normal = 0
+	[[
+		string label = "Normal (color)"
+	]],
+	output vector out_gradient = 0
+	[[
+		string label = "Gradient (vector)"
+	]],
+	output vector out_second_deriv = 0
+	[[
+		string label = "2nd Derivative (vector)"
+	]],
+	output vector out_second_deriv2 = 0
+	[[
+		string label = "2nd Derivative 2 (vector)"
+	]]
+)
+{
+	fea_wgt_uvw_ret uvw_data = FEA_WGT_GET_UVW;
+	point coord = uvw_data.coord;
+	float phase = FEA_WGT_GET_PHASE;
+
+	fea_shape_style style;
+	fea_init(style);
+	style.shape_feather = 0;
+	style.border_style = 1;
+	style.border_size = 0.1;
+
+	point grid = fea_grid_coord(coord, uvw_data.coord_space, 1.0);
+	// float temp = grid[1];
+	// grid[1] = grid[2];
+	// grid[2] = temp;
+
+	fea_shape s = fea_sine_wave(grid, 0.5, 2.0, 0.2, style);
+	s = fea_segment(grid, point(0.1, 0.1, 0), point(0.5, 0.8, 0), 0.2, style);
+	s = fea_segment(grid, 0.5, fea_per_to_rad(0.10), 0.2, style);
+
+	s = fea_line(grid, point(0.1, 0.1, 0), point(0.5, 0.2, 0), 0.2, style);
+	// s = fea_line(grid, 0.5, fea_per_to_rad(0.10), 0.2, style);
+
+	out_col = mix(color(0), FEA_RED, s.shape_mask);
+	out_col = mix(out_col, color(1), s.border_mask);
+}

@@ -68,7 +68,7 @@ float wave_phi(float speed, float wavelength) {
 
 float max_height(int num_octaves, int num_waves, wave_info waves[ARR_SIZE]) {
 	float ret = 0.0;
-	for (int j = 0; j < num_octaves; ++j) { 
+	for (int j = 0; j < num_octaves; ++j) {
 		int count = j * num_waves + num_waves;
 		for (int i = j * num_waves; i < count; ++i) {
 			ret += waves[i].amp;
@@ -91,7 +91,7 @@ float remap(float val, float low1, float high1, float low2, float high2) {
 }
 
 void compute_terms(point pos, float t, int num_octaves, int num_waves, output wave_info waves[ARR_SIZE]) {
-	for (int j = 0; j < num_octaves; ++j) { 
+	for (int j = 0; j < num_octaves; ++j) {
 		int count = j * num_waves + num_waves;
 		for (int i = j * num_waves; i < count; ++i) {
 			float term = waves[i].w * dot(waves[i].dir, pos + waves[i].offset) + waves[i].phi * t;
@@ -191,13 +191,13 @@ float interp(float k, float percent) {
 
 shader SimpleOcean
 [[
-	string help  = 
+	string help  =
 		"<h3>Simple Ocean</h3>"
 		"A vector displacement shader to generate basic ocean waves.<br>"
 		"<h4>Instructions</h4>"
 		"The shader operates in Tangent Space. To get any useful results, use a 'UVW Map' modifier and apply 'XYZ to UVW' to your target object.<br>"
 		"The output Displacement will only work with 'Arnold Properties' modifier vector displacement input.",
-	string label = "Simple Ocean"
+	string label = "Material - Simple Ocean"
 ]]
 (
 	int NumOctaves = 7
@@ -739,7 +739,7 @@ shader SimpleOcean
 			FoamMapTwo = clamp(color(m_col, m_col, m_col), color(0,0,0), color(1,1,1));
 		}
 
-		
+
 #endif
 
 		// TODO : Experiment with bending curls.

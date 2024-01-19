@@ -1,0 +1,47 @@
+// fea_round osl libraries by Philippe Groarke
+// Copyright 2022 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_round_osl
+#define fea_round_osl
+
+// Given a value val, returns the closest multiple.
+float fea_closest_multiple(float val, float multiple) {
+	if (multiple == 0.0) {
+		return 0.0;
+	}
+	return floor(val / multiple) * multiple;
+}
+
+// Floor to decimal.
+#define fea_floor_to(val, multiple) \
+	floor(val * multiple) / multiple
+
+// Round to decimal.
+#define fea_round_to(val, multiple) \
+	round(val * multiple) / multiple
+
+// Ceil to decimal.
+#define fea_ceil_to(val, multiple) \
+	ceil(val * multiple) / multiple
+
+// Truncate to decimal.
+#define fea_trunc_to(val, multiple) \
+	trunc(val * multiple) / multiple
+
+// Ceils when val > 0, floors otherwise.
+float fea_expand_to(float val, float multiple) {
+	if (val >= 0.0) {
+		return ceil(val * multiple) / multiple;
+	}
+	return floor(val * multiple) / multiple;
+}
+
+vector fea_expand_to(vector val, float multiple) {
+	return vector(
+		fea_expand_to(val[0], multiple),
+		fea_expand_to(val[1], multiple),
+		fea_expand_to(val[2], multiple)
+	);
+}
+
+#endif

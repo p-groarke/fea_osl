@@ -3,7 +3,7 @@
 // https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 #ifndef fea_hash_osl
 #define fea_hash_osl
-#include "D:\code\3dsmax-plugins\OSL\FeaOSL\include\fea_glsl_compat.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_math.osl"
 
 vector fea_hash1_osl(float seed, vector p) {
 	vector q = noise("hash", p, seed);

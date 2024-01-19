@@ -1,0 +1,258 @@
+// fea_shape osl libraries by Philippe Groarke
+// Copyright 2023 Philippe Groarke, All rights reserved.
+// This file is licensed under Apache 2.0 license
+// https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+#ifndef fea_shape_osl
+#define fea_shape_osl
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_math.osl"
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_space.osl"
+
+#define fea_feather_interp_opts \
+	"Hermite:0" \
+	"|Linear:1"
+
+#define fea_shape_border_style_opts \
+	"None:0" \
+	"|Solid:1"
+
+// Maybe?
+struct fea_shape_style {
+	int shape_feather_interp;
+	float shape_feather;
+	int border_style;
+	float border_size;
+	int border_feather_interp;
+	float border_feather;
+};
+void fea_init(output fea_shape_style ret) {
+	ret.shape_feather_interp = 0;
+	ret.shape_feather = 0;
+	ret.border_style = 0;
+	ret.border_size = 0;
+	ret.border_feather_interp = 0;
+	ret.border_feather = 0;
+}
+
+// Defines properties of a shape.
+struct fea_shape {
+	float shape_mask; // 1.0 inside shape, 0.0 outside.
+	float border_mask; // 1.0 inside border, 0.0 outside.
+};
+void fea_init(output fea_shape ret) {
+	ret.shape_mask = 0;
+	ret.border_mask = 0;
+}
+
+// Given an absolute coordinate, returns the local coordinate
+// inside a grid of desired scale. This grid is aligned to the
+// coordinate space.
+// Ranges from [-1,-1,-1] -> [1,1,1].
+point fea_grid_coord(point coord, string coord_space, float grid_scale) {
+	point grid_coord = fract(coord / grid_scale);
+
+	vector offset = vector(1.0);
+	if (coord_space == "tangent") {
+		offset = vector(1.0,1.0,0.0);
+	}
+	// else if (coord_space == "camera") {
+	// Would an artist want the shapes aligned to camera?
+	// Note, screen space doesn't work so that isn't available.
+	// }
+	return grid_coord * 2.0 - offset;
+}
+
+// // Given an absolute coordinate, returns the local coordinate
+// // inside a 2d grid on the surface. This grid is aligned to the
+// // coordinate space.
+// // Ranges from [-1,-1,-1] -> [1,1,1].
+// point fea_surface_grid_coord(point coord, string coord_space, float grid_scale) {
+// 	point s_coord = fea_transform(coord_space, "tangent", coord);
+// 	point grid_coord = fract(s_coord);
+// 	return grid_coord;
+
+// 	// point grid_coord = fract(coord / grid_scale);
+// 	// point s_grid_coord = fea_transform(coord_space, "tangent", grid_coord);
+
+// 	// vector offset = fea_transform("tangent", vector(1,1,0));
+// 	// return s_grid_coord;// * 2.0 - offset;
+// }
+
+
+// Feathers the given input, according to interpolation and feather amount.
+// Expects a function where surface = 0, -n inside, +n outside.
+// Feathers where x < 0.
+float fea_feather(float x, int interp, float amount) {
+	if (amount == 0.0) {
+		return 1.0 - aastep(0.0, x);
+	}
+	if (interp == 0) {
+		// hermite
+		return 1.0 - smoothstep(-amount, 0, x);
+	}
+	// linear
+	return 1.0 - linearstep(-amount, 0, x);
+}
+
+// Given a shape function where surface = 0, -n inside, +n outside,
+// applies styling.
+fea_shape fea_imp_style_shape(float x, fea_shape_style style) {
+	fea_shape ret;
+	fea_init(ret);
+
+	// Shape Mask
+	ret.shape_mask = fea_feather(x, style.shape_feather_interp,
+		style.shape_feather);
+
+	// Border Mask
+	if (style.border_style != 0 && style.border_size != 0) {
+		// Where the inside of the border < 0, outside > 0.
+		float border_x = abs(x) - style.border_size;
+		ret.border_mask = fea_feather(border_x, style.border_feather_interp,
+			style.border_feather);
+	}
+
+	return ret;
+}
+
+// Function of a sphere / circle.
+// Radius should be percentage (of grid) : [0, 1]
+fea_shape fea_sphere(point lcl, float radius, fea_shape_style style) {
+	// Define a function where 0 == surface, -n inside, +n outside.
+	float func(vector p) {
+		return dot(p, p) - pow(radius, 2.0);
+	}
+
+#if 1
+	float dist = func(lcl);
+#else
+	// float eps = length(filterwidth(lcl));
+	float eps = 0.0001;
+	float dist = fea_distance_to_func_3d(lcl, eps, func);
+#endif
+
+	// Use generalized prettify func.
+	return fea_imp_style_shape(dist, style);
+}
+fea_shape fea_sphere(point lcl, float radius) {
+	fea_shape_style style;
+	fea_init(style);
+	return fea_sphere(lcl, radius, style);
+}
+
+
+// Function of a triangle.
+// Size should be percentage (of grid) : [0, 1]
+//
+fea_shape fea_triangle(point mlcl, float size, fea_shape_style style) {
+	// https://math.stackexchange.com/questions/544559/is-there-any-equation-for-triangle
+	// https://math.stackexchange.com/questions/541926/converting-triangles-to-isosceles-equilateral-or-right
+
+	// Define a function where 0 == surface, -n inside, +n outside.
+	float func(point lcl) {
+		point p1 = point(-size, -size, 0);
+		point p2 = point(size, -size, 0);
+		point p3 = point(0, size, 0);
+
+		float x = lcl[0];
+		float y = lcl[1];
+
+		float x1 = p1[0];
+		float y1 = p1[1];
+		float x2 = p2[0];
+		float y2 = p2[1];
+		float x3 = p3[0];
+		float y3 = p3[1];
+
+		// Δ = (x2−x1).(y3−y1)−(x3−x1).(y2−y1)
+		float det = (x2 - x1) * (y3 - y1) - (x3 - x1) * (y2 - y1);
+
+		// ξ=[(y3−y1).(x−x1)−(x3−x1).(y−y1)]/Δ
+		// η=[(x2−x1).(y−y1)−(y2−y1).(x−x1)]/Δ
+		float e1 = ((y3 - y1) * (x - x1) - (x3 - x1) * (y - y1)) / det;
+		float e2 = ((x2 - x1) * (y - y1) - (y2 - y1) * (x - x1)) / det;
+
+		float ret = min(e1, min(e2, 1.0 - e1 - e2));
+		ret *= -1.0; // Flip so -n == inside.
+		return ret;
+	}
+
+	float dist = func(mlcl);
+	// float eps = 0.0001;
+	// float dist = fea_distance_to_func_3d(mlcl, eps, func);
+
+	return fea_imp_style_shape(dist, style);
+}
+fea_shape fea_triangle(point lcl, float size) {
+	fea_shape_style style;
+	fea_init(style);
+	return fea_triangle(lcl, size, style);
+}
+
+
+// Function of a sine wave.
+fea_shape fea_sine_wave(point mlcl, float amp, float freq, float thickness,
+		fea_shape_style style) {
+
+	// Define a function where 0 == surface, -n inside, +n outside.
+	float func(point p) {
+		float w = 2.0 * M_PI * freq;
+		float target_y = amp * sin(w * p[0]);
+		float d = abs(target_y - p[1]);
+		float inside = d - thickness;
+		return d <= thickness ? inside : d;
+	}
+
+	float dist = func(mlcl);
+	return fea_imp_style_shape(dist, style);
+}
+fea_shape fea_sine_wave(point lcl, float thickness, float amp, float freq) {
+	fea_shape_style style;
+	fea_init(style);
+	return fea_sine_wave(lcl, thickness, amp, freq, style);
+}
+
+
+// Function of a line segment between p1 and p2.
+fea_shape fea_segment(point mlcl, point p1, point p2, float thickness,
+		fea_shape_style style) {
+	float dist = fea_distance_to_segment(mlcl, p1, p2);
+
+	// Also works, seems faster, may be hack.
+	// vector seg = p1 - p2;
+	// vector h = mlcl - p1;
+	// float dist = length(h - seg * clamp(dot(seg, h) / dot(seg,seg), 0.0, 1.0));
+	return fea_imp_style_shape(dist, style);
+}
+fea_shape fea_segment(point mlcl, point p1, point p2, float thickness) {
+	fea_shape_style style;
+	fea_init(style);
+	return fea_segment(mlcl, p1, p2, thickness, style);
+}
+
+// Function of a line segment starting at mlcl, of length l and rotation rot
+// (radians).
+fea_shape fea_segment(point mlcl, float l, float rot, float thickness,
+		fea_shape_style style) {
+	point p = rotate(mlcl, rot, vector(0,0,1));
+	float dist = length(vector(p[0], p[1] - l * clamp(p[1] / l, 0.0, 1.0), 0));
+	return fea_imp_style_shape(dist, style);
+}
+fea_shape fea_segment(point mlcl, float l, float rot, float thickness) {
+	fea_shape_style style;
+	fea_init(style);
+	return fea_segment(mlcl, l, rot, thickness, style);
+}
+
+// Function of an infinite line, passing through p1 and p2.
+fea_shape fea_line(point mlcl, point p1, point p2, float thickness,
+		fea_shape_style style) {
+	vector seg = p1 - p2;
+	float dist = abs(dot(normalize(vector(seg[1], -seg[0], 0)), mlcl - p1));
+	return fea_imp_style_shape(dist, style);
+}
+fea_shape fea_line(point mlcl, point p1, point p2, float thickness) {
+	fea_shape_style style;
+	fea_init(style);
+	return fea_line(mlcl, p1, p2, thickness, style);
+}
+#endif
