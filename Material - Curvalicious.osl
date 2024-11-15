@@ -1,7 +1,5 @@
-// Curvalicious Shader - Screen Space Curvature Tools
 // Curvalicious by Philippe Groarke
-// Modified: 2022-04-23
-// Copyright 2022 Autodesk Inc, All rights reserved. This file is licensed under Apache 2.0 license
+// Copyright 2024 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
 //    https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
 
 /*
@@ -45,7 +43,7 @@ shader Curvalicious
 		"Very fast curvature, edge, concave/convex approximation maps.<br>"
 		"Caveat, doesn't deal with hard edges."
 		,
-	string label = "Curvalicious [Viewport-Only]"
+	string label = "Material - Curvalicious [Viewport-Only]"
 ]]
 (
 	float CurvatureStrength = 0.2
@@ -134,28 +132,10 @@ shader Curvalicious
 	float dgx = Dx(gx * angle_correction) / pixel_scale;
 	float dgy = Dy(gy * angle_correction) / pixel_scale;
 
-	// Edge Detect
-	// Helper map which outputs "traditional" edge detect according to
-	// sobel magnitude.
-	{
-		// Grayscale edge detect == approx sobel magnitude.
-		float val = sqrt(dgx * dgx + dgy * dgy);
-		val = val < EdgeDetectThreshold ? 0.0 : val;
-		EdgeDetect = val * EdgeDetectStrength;
-	}
-
 	// Hessian
 	float Ku = (gx + dgx) - (gx - dgx);
 	float Kv = (gy + dgy) - (gy - dgy);
 	float h = (Ku + Kv) / 2.0;
-
-	// Concave / Convex Triangles
-	// Helper map that marks concave tris red, or convex tris blue.
-	{
-		float h2 = h - ConcaveBias;
-		// Use a low epsilon for artifacting in flat faces.
-		ConcaveTris = h2 < 0.00001 ? color(0) : color(1);
-	}
 
 	// Concave / Convex Edge Detect
 	{
@@ -173,6 +153,25 @@ shader Curvalicious
 			col = mix(color(0), color(1,0,0), h2);
 		}
 		Curvature = col;
+	}
+
+	// Edge Detect
+	// Helper map which outputs "traditional" edge detect according to
+	// sobel magnitude.
+	{
+		// Grayscale edge detect == approx sobel magnitude.
+		float val = sqrt(dgx * dgx + dgy * dgy);
+		val = val < EdgeDetectThreshold ? 0.0 : val;
+		EdgeDetect = val * EdgeDetectStrength;
+	}
+
+	// Concave / Convex Triangles
+	{
+		float h2 = h - ConcaveBias;
+		// Use a low epsilon for artifacting in flat faces.
+		ConcaveTris = h2 < 0.00001 ? color(0) : color(1);
+		// ConcaveTris = color(smoothstep(0.00001, 0.1, h2));
+		//ConcaveTris = h2 > 0.9 ? color(0) : color(1);
 	}
 }
 
