@@ -170,8 +170,6 @@ shader Curvalicious
 		float h2 = h - ConcaveBias;
 		// Use a low epsilon for artifacting in flat faces.
 		ConcaveTris = h2 < 0.00001 ? color(0) : color(1);
-		// ConcaveTris = color(smoothstep(0.00001, 0.1, h2));
-		//ConcaveTris = h2 > 0.9 ? color(0) : color(1);
 	}
 }
 
