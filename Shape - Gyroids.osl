@@ -1,0 +1,42 @@
+// Gyroids by Philippe Groarke
+// Copyright 2024 Philippe Groarke, All rights reserved. This file is licensed under Apache 2.0 license
+//    https://github.com/ADN-DevTech/3dsMax-OSL-Shaders/blob/master/LICENSE.txt
+
+#include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget_uvw.osl"
+
+/*
+*/
+
+shader Gyroids
+[[
+	string help  =
+		"<h3>Gyroids</h3>"
+		"Gyroids are cool.<br>"
+		,
+	string label = "Shape - Gyroids"
+]]
+(
+	FEA_WGT_UVW_INPUTS,
+
+	output float Out = 0
+	[[
+		string label = "Out (float)",
+		string help = "Gyroid function in the range [0, 1]."
+	]]
+
+)
+{
+
+	fea_wgt_uvw_ret uvw_data = FEA_WGT_GET_UVW;
+	point coord = uvw_data.coord;
+
+ 	float o = sin(coord.x) * cos(coord.y)
+			+ sin(coord.y) * cos(coord.z)
+			+ sin(coord.z) * cos(coord.x);
+
+	// Rectify [0, 1]
+	o = (o + 1.0) * 0.5;
+
+	Out = clamp(o, 0.0, 1.0);
+}
+

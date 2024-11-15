@@ -42,7 +42,7 @@ getFeaVer = do
 getBuildDirLeaf :: IO String
 getBuildDirLeaf = do
 	unfiltered_ver <- getFeaVer
-	let ver = filter (\x -> x /= '.') unfiltered_ver
+	let ver = filter (/= '.') unfiltered_ver
 	let folder = "FeaOSL-" ++ ver ++ "/"
 	return folder
 
@@ -80,8 +80,7 @@ replaceInclude contents = do
 parseFile :: String -> IO String
 parseFile filename = do
 	contents <- readFile filename
-	new_contents <- replaceInclude contents
-	return new_contents
+	replaceInclude contents
 
 writeToTemp :: FilePath -> String -> IO ()
 writeToTemp filepath contents = do
@@ -126,7 +125,8 @@ main = do
 	zipWithM_ writeToTemp osl_filepaths new_file_contents
 
 	-- Now, zip everything in the temp directory.
-	let out_filepath = build_dir_leaf ++ out_filename
+	-- let out_filepath = build_dir_leaf ++ out_filename
+	let out_filepath = out_filename
 	let zip_expr = build_dir_leaf ++ "*"
 	-- callProcess "7z" ["a", "-aoa", "-tzip", out_filepath,
 	-- 		"./" ++ tempBuildDir ++ "/*"]

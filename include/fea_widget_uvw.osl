@@ -5,6 +5,20 @@
 #define fea_widget_uvw_osl
 #include "C:\Users\groarkp\code\3dsmax-plugins\OSL\FeaOSL\include\fea_widget.osl"
 
+// Returned values.
+struct fea_wgt_uvw_ret {
+	point coord; // the coordinate to process
+	string coord_space; // tangent, object, world, camera, etc
+	vector scale; // per axis scale, including global scale (multiplied)
+};
+
+// ctor
+void fea_init(output fea_wgt_uvw_ret ret) {
+	ret.coord = 0;
+	ret.coord_space = "null";
+	ret.scale = 0;
+}
+
 #define fea_wgt_uvw_mode_opts \
 	"Map Channel:0" \
 	"|UVW Input:1" \
@@ -67,17 +81,6 @@
 		int connectable = 0, \
 	]]
 
-
-struct fea_wgt_uvw_ret {
-	point coord; // the coordinate to process
-	string coord_space; // tangent, object, world, camera, etc
-	vector scale; // per axis scale, including global scale (multiplied)
-};
-void fea_init(output fea_wgt_uvw_ret ret) {
-	ret.coord = 0;
-	ret.coord_space = "null";
-	ret.scale = 0;
-}
 
 // Given the input parameters, computes the coordinate to evalute.
 // Returns a helper struct with extra information.
